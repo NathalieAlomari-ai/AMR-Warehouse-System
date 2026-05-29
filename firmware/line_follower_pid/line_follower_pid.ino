@@ -161,8 +161,8 @@ void loop() {
 
     // --- Differential drive ---
     // Positive output → steer right → speed up left, slow down right
-    int leftSpeed  = BASE_SPEED - (int)output;
-    int rightSpeed = BASE_SPEED + (int)output;
+    int leftSpeed  = BASE_SPEED + (int)output;
+    int rightSpeed = BASE_SPEED - (int)output;
 
     leftSpeed  = constrain(leftSpeed,  MIN_SPEED, MAX_SPEED);
     rightSpeed = constrain(rightSpeed, MIN_SPEED, MAX_SPEED);
