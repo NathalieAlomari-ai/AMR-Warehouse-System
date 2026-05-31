@@ -50,7 +50,7 @@ class DriveSystem {
 public:
     DriveSystem(MotorController& left, MotorController& right)
         : _left(left), _right(right),
-          _bno(55, &Wire),
+          _bno(55, 0x29, &Wire),
           _rotating(false),
           _targetDistance(0.f),
           _targetHeading(0.f),
