@@ -61,9 +61,9 @@
 
 // Layer 1: Velocity PID — conservative starting values for 60 kg load.
 // More authority (higher Kp) is needed to overcome heavy static friction.
-static constexpr float VEL_KP = 2.0f;
-static constexpr float VEL_KI = 0.10f;
-static constexpr float VEL_KD = 0.05f;
+static constexpr float VEL_KP = 0.6f;  // رفعنا القوة قليلاً
+static constexpr float VEL_KI = 0.1f;  // أضفنا عنصر "الإصرار" للتغلب على الاحتكاك
+static constexpr float VEL_KD = 0.0f;  // نبقيه مطفأً الآن
 
 // Layers 2–4 default gains live in DriveSystem.h constructor.
 // Access via drive.posPID / drive.syncPID / drive.headingPID at runtime.
@@ -78,7 +78,7 @@ static constexpr float MAX_RPM_STEP_PER_SEC = 25.0f;
 
 static constexpr unsigned long INNER_INTERVAL_US = 20000UL; // 50 Hz Velocity PID
 static constexpr unsigned long OUTER_INTERVAL_MS = 50UL;    // 20 Hz outer PIDs
-static constexpr unsigned long WATCHDOG_MS        = 500UL;  // Safety timeout
+static constexpr unsigned long WATCHDOG_MS        = 5000UL;  // Safety timeout
 static constexpr unsigned long ODOM_MS            = 50UL;   // 20 Hz odometry output
 
 // =============================================================================
@@ -87,7 +87,7 @@ static constexpr unsigned long ODOM_MS            = 50UL;   // 20 Hz odometry ou
 
 // Quadrature encoders. Swap A↔B arguments if a motor reads negative RPM forward.
 static Encoder encLeft (10, 11);
-static Encoder encRight(14, 15);
+static Encoder encRight(15, 14);
 
 // BTS7960 motor drivers: MotorDriver(RPWM, LPWM, R_EN, L_EN)
 static MotorDriver driverLeft (6, 7, 8, 9);
