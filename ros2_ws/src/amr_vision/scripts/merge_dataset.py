@@ -28,8 +28,15 @@ import yaml
 from pathlib import Path
 
 # ─────────────────────────────────────────────
-# CONFIGURE THESE PATHS (edit if your folder names differ)
+# CONFIGURATION
 # ─────────────────────────────────────────────
+
+# Max images to take from each source per split (train/valid/test).
+# Reason: box dataset has 20k images — using all would create class imbalance
+# and make Colab training take 8+ hours (free GPU disconnects at ~12h).
+# 3000 per source = ~9000 training images total -> ~1 hour on Colab free tier.
+# Set to None to use every image (no cap).
+MAX_PER_SOURCE = 3000
 
 BASE_DIR = Path(r"C:\Users\abdal\AMR-Warehouse-System\datasets")
 
@@ -37,19 +44,23 @@ SOURCES = [
     {
         "name":     "box",           # human label — appears in console output
         "path":     BASE_DIR / "raw" / "box_dataset",
-        "class_map": {0: 0},         # all classes in this dataset → new class IDs
+        "class_map": {0: 0},         # all classes in this dataset -> new class IDs
         # If your box dataset has multiple classes, add them:
-        # "class_map": {0: 0, 1: 0}  means both old-0 and old-1 → new-0 (box)
+        # "class_map": {0: 0, 1: 0}  means both old-0 and old-1 -> new-0 (box)
     },
     {
         "name":     "qr",
         "path":     BASE_DIR / "raw" / "qr_dataset",
-        "class_map": {0: 1},         # old class 0 (qr) → new class 1
+        "class_map": {0: 1},         # old class 0 (qr) -> new class 1
     },
     {
         "name":     "barcode",
         "path":     BASE_DIR / "raw" / "barcode_dataset",
-        "class_map": {0: 2},         # old class 0 (barcode) → new class 2
+        "class_map": {0: 2},         # old class 0 (barcode) -> new class 2
+        # Split override: barcode train labels are missing from this dataset.
+        # The test split (562 labeled images) becomes our training data.
+        # Format: {source_split: destination_split}
+        "split_override": {"test": "train"},
     },
 ]
 
@@ -106,22 +117,24 @@ def remap_label_file(src_label_path, dst_label_path, class_map):
     return len(new_lines), skipped
 
 
-def process_split(source_cfg, split, out_dir, counters):
+def process_split(source_cfg, src_split, dst_split, out_dir, counters):
     """
-    Copy one split (train/valid/test) from one source dataset into out_dir.
+    Copy one split from one source dataset into out_dir.
+    src_split: the split name in the SOURCE folder (e.g. 'test')
+    dst_split: the split name in the OUTPUT folder (e.g. 'train')
+    These differ when split_override is used (e.g. barcode test -> merged train).
     Prefixes filenames with the source name to prevent collisions.
-    e.g.  box_img001.jpg  so box and qr images never overwrite each other.
     """
-    src_images = source_cfg["path"] / split / "images"
-    src_labels = source_cfg["path"] / split / "labels"
+    src_images = source_cfg["path"] / src_split / "images"
+    src_labels = source_cfg["path"] / src_split / "labels"
 
-    dst_images = out_dir / split / "images"
-    dst_labels = out_dir / split / "labels"
+    dst_images = out_dir / dst_split / "images"
+    dst_labels = out_dir / dst_split / "labels"
     dst_images.mkdir(parents=True, exist_ok=True)
     dst_labels.mkdir(parents=True, exist_ok=True)
 
     if not src_images.exists():
-        print(f"  [SKIP] {source_cfg['name']} / {split} — folder not found: {src_images}")
+        print(f"  [SKIP] {source_cfg['name']} / {src_split} -- folder not found")
         return
 
     prefix    = source_cfg["name"]
@@ -129,9 +142,14 @@ def process_split(source_cfg, split, out_dir, counters):
     copied    = 0
     skipped   = 0
 
-    for img_file in src_images.iterdir():
-        if img_file.suffix.lower() not in (".jpg", ".jpeg", ".png", ".bmp"):
-            continue
+    all_images = [f for f in src_images.iterdir()
+                  if f.suffix.lower() in (".jpg", ".jpeg", ".png", ".bmp")]
+
+    # Apply cap: sort for reproducibility, then slice
+    if MAX_PER_SOURCE is not None and len(all_images) > MAX_PER_SOURCE:
+        all_images = sorted(all_images)[:MAX_PER_SOURCE]
+
+    for img_file in all_images:
 
         # Unique destination name: prefix_originalname.ext
         dst_img_name = f"{prefix}_{img_file.name}"
@@ -160,9 +178,10 @@ def process_split(source_cfg, split, out_dir, counters):
         else:
             copied += 1
 
-    counters[split]["copied"]  += copied
-    counters[split]["skipped"] += skipped
-    print(f"  {split:6}  →  {copied:4d} images copied,  {skipped:3d} skipped")
+    counters[dst_split]["copied"]  += copied
+    counters[dst_split]["skipped"] += skipped
+    tag = f"{src_split}->{dst_split}" if src_split != dst_split else src_split
+    print(f"  {tag:12}  ->  {copied:4d} images copied,  {skipped:3d} skipped")
 
 
 def write_data_yaml(out_dir, class_names):
@@ -180,7 +199,7 @@ def write_data_yaml(out_dir, class_names):
     yaml_path = out_dir / "data.yaml"
     with open(yaml_path, "w") as f:
         yaml.dump(yaml_content, f, default_flow_style=False, sort_keys=False)
-    print(f"\ndata.yaml written → {yaml_path}")
+    print(f"\ndata.yaml written -> {yaml_path}")
 
 
 def main():
@@ -211,9 +230,24 @@ def main():
 
     # Process each source
     for src in SOURCES:
+        override = src.get("split_override", {})  # e.g. {"test": "train"}
         print(f"\n[{src['name'].upper()} DATASET]  class_map={src['class_map']}")
+        if override:
+            print(f"  split_override: {override}")
+
+        # Build the list of (src_split, dst_split) pairs to process.
+        # Regular splits: src==dst. Overridden splits: src!=dst.
+        # Skip any normal split that is the SOURCE of an override (already remapped).
+        overridden_sources = set(override.keys())
+        pairs = []
         for split in SPLITS:
-            process_split(src, split, OUTPUT_DIR, counters)
+            if split not in overridden_sources:
+                pairs.append((split, split))
+        for src_split, dst_split in override.items():
+            pairs.append((src_split, dst_split))
+
+        for src_split, dst_split in pairs:
+            process_split(src, src_split, dst_split, OUTPUT_DIR, counters)
 
     # Write data.yaml
     write_data_yaml(OUTPUT_DIR, CLASS_NAMES)
