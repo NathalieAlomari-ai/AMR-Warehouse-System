@@ -13,3 +13,12 @@ firmware/.pio/
 
 # OS
 .DS_Store
+
+# Datasets — large files, never commit
+datasets/
+
+# Trained models — large binary files, never commit
+*.pt
+*.engine
+*.onnx
+ros2_ws/src/amr_vision/models/
