@@ -50,7 +50,7 @@ def generate_launch_description():
     )
 
     # ── SLLIDAR C1 ──────────────────────────────────────────────────────────
-    # frame_id must match the URDF link name 'laser_frame' so /scan messages
+    # frame_id must match the URDF link name 'laser' so /scan messages
     # land in the correct TF frame without a separate static_transform_publisher.
     sllidar = Node(
         package='sllidar_ros2',
@@ -61,7 +61,7 @@ def generate_launch_description():
             'channel_type':     'serial',
             'serial_port':      '/dev/ttyUSB0',
             'serial_baudrate':  460800,
-            'frame_id':         'laser_frame',
+            'frame_id':         'laser',
             'inverted':         False,
             'angle_compensate': True,
             'scan_mode':        'Standard',

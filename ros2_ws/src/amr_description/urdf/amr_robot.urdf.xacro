@@ -218,7 +218,7 @@
   </joint>
 
   <!-- =====================================================================
-       SLLIDAR C1  (topic: /scan, frame: laser_frame)
+       SLLIDAR C1  (topic: /scan, frame: laser)
        Front of the top surface: X = +0.25 m from base_link centre.
        Joint Z = base_height/2 + lidar_height/2 → cylinder bottom flush with chassis top
        (= 0.160 + 0.030 = 0.190 m above base_link centre with 320 mm chassis height).
