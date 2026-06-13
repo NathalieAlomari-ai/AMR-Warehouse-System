@@ -1,12 +1,17 @@
+import os
+
+from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch_ros.actions import Node
 
 
 def generate_launch_description():
+    nav_share   = get_package_share_directory('amr_navigation')
+    slam_config = os.path.join(nav_share, 'config', 'mapper_params_online_async.yaml')
 
     # Temporary fake odometry: publishes a static identity transform odom →
     # base_footprint so slam_toolbox can build a map while the robot is moved
-    # manually (motors not yet connected).
+    # manually (motors not yet wired into the full bringup).
     fake_odom = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
@@ -20,7 +25,7 @@ def generate_launch_description():
         executable='async_slam_toolbox_node',
         name='slam_toolbox',
         output='screen',
-        parameters=[{'use_sim_time': False}],
+        parameters=[slam_config, {'use_sim_time': False}],
     )
 
     return LaunchDescription([

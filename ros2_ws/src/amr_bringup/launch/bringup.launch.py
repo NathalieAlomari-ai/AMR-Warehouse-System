@@ -35,6 +35,20 @@ def generate_launch_description():
         output='screen',
     )
 
+    # ── Serial Bridge (Teensy 4.1 ↔ ROS 2) ────────────────────────────────
+    # Receives wheel RPM + IMU heading over USB-serial and publishes /odom
+    # and the odom → base_footprint TF.  Kinematics must match the URDF.
+    serial_bridge = Node(
+        package='amr_hardware',
+        executable='serial_bridge_node',
+        name='serial_bridge_node',
+        output='screen',
+        parameters=[{
+            'wheel_radius': 0.0625,
+            'wheel_base':   0.65,
+        }],
+    )
+
     # ── SLLIDAR C1 ──────────────────────────────────────────────────────────
     # frame_id must match the URDF link name 'laser_frame' so /scan messages
     # land in the correct TF frame without a separate static_transform_publisher.
@@ -65,6 +79,7 @@ def generate_launch_description():
     return LaunchDescription([
         robot_state_publisher,
         joint_state_publisher_gui,
+        serial_bridge,
         sllidar,
         rviz2,
     ])

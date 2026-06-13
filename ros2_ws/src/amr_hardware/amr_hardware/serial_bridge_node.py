@@ -16,7 +16,7 @@ class SerialBridgeNode(Node):
         self.declare_parameter('odom_frame', 'odom')
         self.declare_parameter('base_frame', 'base_link')
         self.declare_parameter('wheel_radius', 0.0625)
-        self.declare_parameter('wheel_base', 0.35)
+        self.declare_parameter('wheel_base', 0.65)
         self.declare_parameter('max_linear_accel', 1.0)   # m/s² — stops in ~0.5 s from 0.5 m/s
         self.declare_parameter('max_angular_accel', 2.0)  # rad/s² — stops in ~0.5 s from 1.0 rad/s
 
@@ -43,6 +43,7 @@ class SerialBridgeNode(Node):
         self._x = 0.0
         self._y = 0.0
         self._yaw = 0.0
+        self._hdg_offset = 0.0   # IMU heading at startup, used to anchor odom frame
         self._prev_time = None
 
         self._odom_pub = self.create_publisher(Odometry, '/odom', 10)
@@ -122,21 +123,27 @@ class SerialBridgeNode(Node):
             self.get_logger().error(f'Serial read error: {e}')
 
     def _parse_telemetry(self, line: str) -> None:
-        stripped = line.strip('[]')
-        parts = stripped.split(',')
-        if len(parts) != 4:
-            return
+        # Expected format: L_RPM:<f> R_RPM:<f> Hdg:<f> Dist:<f> Lcnt:<i> Rcnt:<i>
+        fields: dict[str, str] = {}
+        for token in line.split():
+            if ':' in token:
+                key, _, value = token.partition(':')
+                fields[key] = value
 
         try:
-            l_rpm = float(parts[2])
-            r_rpm = float(parts[3])
-        except ValueError:
+            l_rpm = float(fields['L_RPM'])
+            r_rpm = float(fields['R_RPM'])
+            hdg_deg = float(fields['Hdg'])
+            # Dist and Lcnt/Rcnt are parsed but reserved for future sensor-fusion use
+        except (KeyError, ValueError):
             return
 
         now = self.get_clock().now()
 
         if self._prev_time is None:
             self._prev_time = now
+            # Anchor the odom frame to the robot's heading at startup
+            self._hdg_offset = math.radians(hdg_deg)
             return
 
         dt = (now - self._prev_time).nanoseconds * 1e-9
@@ -144,21 +151,28 @@ class SerialBridgeNode(Node):
             return
         self._prev_time = now
 
+        # IMU heading relative to startup orientation, normalized to [-π, π]
+        raw_yaw = math.radians(hdg_deg) - self._hdg_offset
+        yaw = math.atan2(math.sin(raw_yaw), math.cos(raw_yaw))
+
+        # Angular velocity from heading delta; atan2 handles ±180° wrap-around
+        dyaw = math.atan2(math.sin(yaw - self._yaw), math.cos(yaw - self._yaw))
+        angular_vel = dyaw / dt
+
         rpm_to_ms = (2.0 * math.pi * self._wheel_radius) / 60.0
-        v_left = l_rpm * rpm_to_ms
+        v_left  = l_rpm * rpm_to_ms
         v_right = r_rpm * rpm_to_ms
 
-        linear_vel = (v_left + v_right) / 2.0
-        angular_vel = (v_right - v_left) / self._wheel_base
+        # Encoder-only displacement — decoupled from the IMU heading source
+        ds = (v_left + v_right) / 2.0 * dt
 
-        delta_yaw = angular_vel * dt
-        mid_yaw = self._yaw + delta_yaw / 2.0
-        self._x += linear_vel * math.cos(mid_yaw) * dt
-        self._y += linear_vel * math.sin(mid_yaw) * dt
-        self._yaw = math.atan2(math.sin(self._yaw + delta_yaw),
-                               math.cos(self._yaw + delta_yaw))
+        # Project encoder displacement onto the IMU-derived heading midpoint
+        mid_yaw = self._yaw + dyaw / 2.0
+        self._x += ds * math.cos(mid_yaw)
+        self._y += ds * math.sin(mid_yaw)
+        self._yaw = yaw
 
-        self._publish_odom(now, self._yaw, linear_vel, angular_vel)
+        self._publish_odom(now, self._yaw, ds / dt, angular_vel)
 
     def _publish_odom(self, stamp, yaw: float, linear_vel: float, angular_vel: float) -> None:
         ros_stamp = stamp.to_msg()
