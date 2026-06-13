@@ -18,7 +18,7 @@ def generate_launch_description():
     # ── Robot State Publisher ───────────────────────────────────────────────
     # Reads the URDF, publishes /robot_description, and broadcasts all fixed
     # TF transforms declared in the URDF (base_footprint → base_link →
-    # laser_frame, camera_link, lift_link, wheel links, caster links).
+    # laser, camera_link, lift_link, wheel links, caster links).
     robot_state_publisher = Node(
         package='robot_state_publisher',
         executable='robot_state_publisher',
@@ -29,10 +29,13 @@ def generate_launch_description():
     # ── Joint State Publisher GUI ───────────────────────────────────────────
     # Provides sliders for all non-fixed joints (drive wheels, lift_joint).
     # Publishes /joint_states so robot_state_publisher can broadcast their TF.
+    # robot_description is passed directly so JSP-GUI does not need to wait
+    # for the /robot_description topic before populating its joint list.
     joint_state_publisher_gui = Node(
         package='joint_state_publisher_gui',
         executable='joint_state_publisher_gui',
         output='screen',
+        parameters=[{'robot_description': robot_description}],
     )
 
     # ── Serial Bridge (Teensy 4.1 ↔ ROS 2) ────────────────────────────────
