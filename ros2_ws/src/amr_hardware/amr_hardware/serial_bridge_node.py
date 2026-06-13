@@ -100,7 +100,13 @@ class SerialBridgeNode(Node):
     def _send_velocity(self, linear: float, angular: float) -> None:
         if self._ser is None or not self._ser.is_open:
             return
-        packet = f'<{linear:.4f},{angular:.4f}>\n'
+        # Differential-drive: convert (m/s, rad/s) → individual wheel RPMs
+        rpm_factor = 60.0 / (2.0 * math.pi * self._wheel_radius)
+        l_rpm = (linear - angular * self._wheel_base / 2.0) * rpm_factor
+        r_rpm = (linear + angular * self._wheel_base / 2.0) * rpm_factor
+        # Firmware protocol: "V <left_rpm> <right_rpm>\n"  (see main.cpp line 17)
+        packet = f'V {l_rpm:.2f} {r_rpm:.2f}\n'
+        self.get_logger().info(f'Sending: {packet.strip()}')
         try:
             self._ser.write(packet.encode('utf-8'))
         except serial.serialutil.SerialException as e:
