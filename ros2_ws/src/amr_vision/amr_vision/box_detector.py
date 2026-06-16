@@ -29,8 +29,9 @@ from depth_utils import DepthSampler
 # Class ID for box in our trained model
 BOX_CLASS_ID = 0
 
-# Minimum detection confidence
-MIN_CONFIDENCE = 0.35
+# Minimum detection confidence — kept low so box is detected for COARSE servo
+# even when the robot is slightly off-angle; QR takes over for FINE alignment.
+MIN_CONFIDENCE = 0.25
 
 # Minimum bounding box area (pixels²) to consider a valid box detection.
 # Filters out tiny false positives in the background.

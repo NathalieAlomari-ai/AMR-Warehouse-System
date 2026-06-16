@@ -9,19 +9,19 @@ It coordinates all 3 stages in order:
   STAGE_1: QR confirmation
     Camera detects QR on the lower part of the shelf.
     Decoded content is compared to the expected shelf ID.
-    On confirmation → signal navigation to raise scissor lift.
+    On confirmation -> signal navigation to raise scissor lift.
 
   STAGE_2: Barcode confirmation + depth measurement
     Scissor lift has reached target height.
     Camera detects barcode on the box and confirms the SKU.
     Depth is measured to determine how far the robot must approach.
-    On confirmation → send approach distance to Teensy.
+    On confirmation -> send approach distance to Teensy.
 
   STAGE_3: Visual servo alignment (two-phase)
     Robot drives forward to approach distance (Teensy handles that).
     COARSE phase: box centre used for servo — box is large, always visible.
     FINE phase:   barcode centre used once offset < 40px — more precise.
-    When barcode offset < 10px → send suction cup activation command.
+    When barcode offset < 10px -> send suction cup activation command.
 
   DONE: Task complete. Wait for next order.
   ERROR: Something was wrong (wrong shelf, wrong SKU, timeout).
@@ -36,16 +36,17 @@ with your team's message publisher.
 import cv2
 import time
 import argparse
+import numpy as np
 from enum import Enum, auto
 from pathlib import Path
 from ultralytics import YOLO
 
-from camera_utils     import AstraCamera
-from qr_detector      import QRDetector, draw_qr_overlay
-from barcode_detector import BarcodeDetector, draw_barcode_overlay
-from box_detector     import BoxDetector, draw_box_overlay, COARSE_THRESHOLD_PX
-from visual_servo     import VisualServo, draw_servo_overlay
-from teensy_comm      import TeensyComm
+from camera_utils import AstraCamera
+from qr_detector  import QRDetector, draw_qr_overlay
+from box_detector import BoxDetector, draw_box_overlay
+from visual_servo import VisualServo, draw_servo_overlay
+from depth_utils  import DepthSampler
+from teensy_comm  import TeensyComm
 
 # ── CONFIG ────────────────────────────────────────────────────────────────────
 MODEL_PATH = Path(__file__).parent.parent / "models" / "best.pt"
@@ -98,11 +99,15 @@ class VisionPipeline:
         print(f"[VisionPipeline] Loading model: {MODEL_PATH}")
         self._model = YOLO(str(MODEL_PATH))
 
-        self._qr      = QRDetector(self._model, expected_id=shelf_id)
-        self._barcode = BarcodeDetector(self._model, expected_sku=expected_sku)
-        self._box     = BoxDetector(self._model)
-        self._servo   = VisualServo()
-        self._teensy  = TeensyComm(port=teensy_port, dry_run=dry_run)
+        # Two separate QR detectors: one for the shelf label (Stage 1),
+        # one for the QR sticker on the box (Stage 2 + Stage 3 FINE).
+        self._shelf_qr = QRDetector(self._model, expected_id=shelf_id)
+        self._box_qr   = QRDetector(self._model, expected_id=expected_sku)
+        self._s2_depth = DepthSampler()          # depth at box QR centre (Stage 2)
+
+        self._box    = BoxDetector(self._model)  # coarse servo anchor (Stage 3)
+        self._servo  = VisualServo()
+        self._teensy = TeensyComm(port=teensy_port, dry_run=dry_run)
 
         self._state      = State.STAGE_1
         self._stage_start = time.time()
@@ -159,78 +164,83 @@ class VisionPipeline:
 
     def _run_stage1(self, frame):
         """Stage 1: find and confirm QR code on shelf."""
-        result = self._qr.detect(frame)
+        result = self._shelf_qr.detect(frame)
         if SHOW_WINDOW:
             draw_qr_overlay(frame, result)
 
         if result.confirmed:
-            print(f"[Stage 1] QR confirmed: '{result.decoded}' — signalling lift UP")
+            print(f"[Stage 1] QR confirmed: '{result.decoded}' -> signalling lift UP")
             self._teensy.send_lift_up()   # navigation team raises scissor lift
             self._transition(State.STAGE_2)
 
     def _run_stage2(self, frame, depth):
-        """Stage 2: confirm barcode SKU and measure approach distance."""
-        result = self._barcode.detect(frame, depth)
+        """Stage 2: confirm box QR (SKU) and measure approach distance."""
+        result = self._box_qr.detect(frame)
         if SHOW_WINDOW:
-            draw_barcode_overlay(frame, result)
+            draw_qr_overlay(frame, result)
 
         if result.confirmed:
-            if result.distance_mm > 0:
-                print(f"[Stage 2] SKU confirmed: '{result.decoded}'  "
-                      f"distance: {result.distance_mm} mm")
-                self._teensy.send_approach(result.distance_mm)
+            # Sample depth at the QR code centre
+            x1, y1, x2, y2 = result.bbox
+            cx = (x1 + x2) // 2
+            cy = (y1 + y2) // 2
+            h, w = frame.shape[:2]
+            cx = int(np.clip(cx, 0, w - 1))
+            cy = int(np.clip(cy, 0, h - 1))
+            distance_mm = self._s2_depth.get(depth, cx, cy)
+
+            if distance_mm > 0:
+                print(f"[Stage 2] QR confirmed: '{result.decoded}'  "
+                      f"distance: {distance_mm} mm")
+                self._teensy.send_approach(distance_mm)
                 self._transition(State.STAGE_3)
             else:
-                # SKU confirmed but depth is not valid yet — keep waiting
-                print("[Stage 2] SKU confirmed, waiting for valid depth...")
+                print("[Stage 2] QR confirmed, waiting for valid depth...")
 
     def _run_stage3(self, frame, depth):
         """
         Stage 3: two-phase visual servo alignment.
 
-        COARSE phase — use BOX centre (large, always visible even when misaligned).
-            Run until |offset| < COARSE_THRESHOLD_PX.
-        FINE phase   — use BARCODE centre (precise, small target).
-            Run until |offset| < ALIGN_ENTER_PX (10px) → aligned.
+        FINE phase   — QR code on box face used as precise servo anchor.
+            Run until |offset| < ALIGN_ENTER_PX (10px) -> aligned.
+        COARSE phase — box bounding-box centre used when QR not yet visible.
+            Brings the robot close enough for QR to appear.
         """
         w = frame.shape[1]
 
-        # Always try barcode first (it is the ground truth anchor)
-        bc_results = self._model(frame, conf=0.30, classes=[2], verbose=False)
-        bc_boxes   = bc_results[0].boxes
-        barcode_cx = None
-        if bc_boxes:
-            best       = max(bc_boxes, key=lambda b: float(b.conf[0]))
-            bx1, by1, bx2, by2 = map(int, best.xyxy[0])
-            barcode_cx = (bx1 + bx2) // 2
+        # Try box QR first — this is the precise FINE anchor
+        qr_result = self._box_qr.detect(frame)
+        qr_cx = None
+        if qr_result.found and qr_result.bbox is not None:
+            qx1, qy1, qx2, qy2 = qr_result.bbox
+            qr_cx = (qx1 + qx2) // 2
 
-        # Try box detection as coarse fallback
+        # Try box detection as COARSE fallback
         box_result = self._box.detect(frame, depth)
-        box_cx     = box_result.center[0] if box_result.found else None
+        box_cx = box_result.center[0] if box_result.found else None
 
-        # Decide which anchor to use
-        if barcode_cx is not None:
-            # Barcode visible → use it regardless of phase
-            anchor_cx = barcode_cx
-            mode      = "FINE (barcode)"
+        # Decide anchor
+        if qr_cx is not None:
+            anchor_cx = qr_cx
+            mode = "FINE (QR)"
         elif box_cx is not None:
-            # Only box visible → coarse alignment
             anchor_cx = box_cx
-            mode      = "COARSE (box)"
+            mode = "COARSE (box)"
         else:
-            # Nothing detected — hold position
             print("[Stage 3] Nothing detected — holding position")
             return
 
         correction, offset_px, aligned = self._servo.update(anchor_cx, w)
 
         if SHOW_WINDOW:
-            if barcode_cx is not None:
-                col = (0, 220, 0) if aligned else (0, 140, 255)
-                cv2.rectangle(frame, (bx1, by1), (bx2, by2), col, 2)
+            if qr_cx is not None:
+                col = (0, 220, 0) if aligned else (0, 165, 255)
+                cv2.rectangle(frame, (qx1, qy1), (qx2, qy2), col, 2)
+                cv2.putText(frame, "QR (FINE)", (qx1, qy1 - 8),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.55, col, 2)
             if box_result.found:
                 draw_box_overlay(frame, box_result,
-                                 mode="FINE" if barcode_cx else "COARSE")
+                                 mode="FINE" if qr_cx else "COARSE")
             draw_servo_overlay(frame, anchor_cx, correction, offset_px, aligned)
             cv2.putText(frame, f"Mode: {mode}", (10, 60),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.65, (200, 200, 0), 2)
@@ -238,9 +248,9 @@ class VisionPipeline:
         print(f"[Stage 3] {mode}  offset={offset_px:+d}px  "
               f"correction={correction:+.4f}  aligned={aligned}")
 
-        if aligned and barcode_cx is not None:
-            # Only declare aligned when we have the precise barcode anchor
-            print(f"[Stage 3] FINE aligned at offset={offset_px}px — activating suction cup")
+        if aligned and qr_cx is not None:
+            # Only declare aligned when the precise QR anchor is the source
+            print(f"[Stage 3] FINE aligned at offset={offset_px}px -> activating suction cup")
             self._transition(State.GRIPPING)
         elif not aligned:
             self._teensy.send_servo(correction)
@@ -262,7 +272,7 @@ class VisionPipeline:
     # ── Helpers ────────────────────────────────────────────────────────────────
 
     def _transition(self, new_state: State):
-        print(f"[VisionPipeline] {self._state.name} → {new_state.name}")
+        print(f"[VisionPipeline] {self._state.name} -> {new_state.name}")
         self._state       = new_state
         self._stage_start = time.time()
 
