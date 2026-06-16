@@ -44,7 +44,7 @@ from ultralytics import YOLO
 from camera_utils import AstraCamera
 from qr_detector  import QRDetector, draw_qr_overlay
 from box_detector import BoxDetector, draw_box_overlay
-from visual_servo import VisualServo, draw_servo_overlay
+from visual_servo import VisualServo, draw_servo_overlay, ALIGN_EXIT_PX
 from depth_utils  import DepthSampler
 from teensy_comm  import TeensyComm
 
@@ -60,6 +60,14 @@ STAGE_TIMEOUT = {
 
 # After alignment, send the grip command, then wait this long before DONE.
 GRIP_DELAY_S = 1.5
+
+# Consecutive aligned frames required before sending GRIP.
+# Prevents gripping while the robot is still settling after a PID correction.
+# At ~20 fps this is ~0.5 s of confirmed stillness before the cup activates.
+ALIGN_STABLE_FRAMES = 10
+
+# If the robot drifts more than this during the grip phase, print a warning.
+GRIP_DRIFT_WARN_PX = 20
 
 # Whether to show the live camera window (set False for headless Jetson deployment)
 SHOW_WINDOW = True
@@ -85,7 +93,8 @@ class VisionPipeline:
     """
 
     def __init__(self, shelf_id: str, expected_sku: str,
-                 teensy_port: str = "COM3", dry_run: bool = False):
+                 teensy_port: str = "COM3", dry_run: bool = False,
+                 no_timeout: bool = False):
         """
         shelf_id:     expected content of the QR code on the shelf
         expected_sku: expected barcode value on the target box
@@ -109,9 +118,11 @@ class VisionPipeline:
         self._servo  = VisualServo()
         self._teensy = TeensyComm(port=teensy_port, dry_run=dry_run)
 
-        self._state      = State.STAGE_1
+        self._no_timeout  = no_timeout
+        self._state       = State.STAGE_1
         self._stage_start = time.time()
         self._grip_start  = None
+        self._align_count = 0   # consecutive aligned frames (Stage 3 stability gate)
 
     def run(self):
         """
@@ -245,27 +256,77 @@ class VisionPipeline:
             cv2.putText(frame, f"Mode: {mode}", (10, 60),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.65, (200, 200, 0), 2)
 
-        print(f"[Stage 3] {mode}  offset={offset_px:+d}px  "
-              f"correction={correction:+.4f}  aligned={aligned}")
-
-        if aligned and qr_cx is not None:
-            # Only declare aligned when the precise QR anchor is the source
-            print(f"[Stage 3] FINE aligned at offset={offset_px}px -> activating suction cup")
-            self._transition(State.GRIPPING)
-        elif not aligned:
+        # Stability gate: robot must hold alignment for ALIGN_STABLE_FRAMES consecutive
+        # frames before we trust that it has fully stopped moving.
+        if aligned:
+            self._align_count += 1
+            self._teensy.send_servo(0.0)   # explicit STOP — don't let robot coast
+        else:
+            self._align_count = 0
             self._teensy.send_servo(correction)
 
+        if SHOW_WINDOW:
+            # Show stability progress bar in the overlay
+            bar_text = f"Stable: {self._align_count}/{ALIGN_STABLE_FRAMES}"
+            bar_col  = (0, 220, 0) if aligned else (0, 140, 255)
+            cv2.putText(frame, bar_text, (10, 90),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.65, bar_col, 2)
+
+        print(f"[Stage 3] {mode}  offset={offset_px:+d}px  "
+              f"correction={correction:+.4f}  stable={self._align_count}/{ALIGN_STABLE_FRAMES}")
+
+        if self._align_count >= ALIGN_STABLE_FRAMES and qr_cx is not None:
+            print(f"[Stage 3] Stable for {ALIGN_STABLE_FRAMES} frames "
+                  f"at offset={offset_px}px -> activating suction cup")
+            self._transition(State.GRIPPING)
+
     def _run_gripping(self, frame):
-        """Activate suction cup, wait for GRIP_DELAY_S, then declare DONE."""
+        """
+        Activate suction cup, then track the QR center for GRIP_DELAY_S.
+        If the robot drifts during suction, print a warning.
+        The suction cup is already active — we can't abort, so we monitor only.
+        """
         if self._grip_start is None:
             self._grip_start = time.time()
             self._teensy.send_grip()
-            print("[Gripping] Suction cup command sent.")
+            self._teensy.send_servo(0.0)   # hold position — no lateral movement
+            print("[Gripping] Suction cup command sent. Tracking center...")
 
-        cv2.putText(frame, "GRIPPING...", (frame.shape[1]//2 - 80, frame.shape[0]//2),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 220, 0), 3)
+        # Track QR position during grip to detect any robot drift
+        w = frame.shape[1]
+        qr_result = self._box_qr.detect(frame)
+        grip_elapsed = time.time() - self._grip_start
 
-        if time.time() - self._grip_start >= GRIP_DELAY_S:
+        if qr_result.found and qr_result.bbox is not None:
+            qx1, qy1, qx2, qy2 = qr_result.bbox
+            qr_cx   = (qx1 + qx2) // 2
+            offset  = int(qr_cx - w / 2)
+
+            if abs(offset) > GRIP_DRIFT_WARN_PX:
+                print(f"[Gripping] WARNING: drifted {offset:+d}px during grip "
+                      f"(t={grip_elapsed:.2f}s)")
+                col = (0, 0, 220)   # red = drifted
+            else:
+                print(f"[Gripping] On-center: offset={offset:+d}px  t={grip_elapsed:.2f}s")
+                col = (0, 220, 0)   # green = holding
+
+            if SHOW_WINDOW:
+                cv2.rectangle(frame, (qx1, qy1), (qx2, qy2), col, 2)
+                cv2.putText(frame, f"Grip offset: {offset:+d}px",
+                            (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.65, col, 2)
+        else:
+            print(f"[Gripping] QR lost during grip — t={grip_elapsed:.2f}s")
+
+        if SHOW_WINDOW:
+            pct  = min(grip_elapsed / GRIP_DELAY_S, 1.0)
+            bar_w = int(frame.shape[1] * pct)
+            cv2.rectangle(frame, (0, frame.shape[0] - 8),
+                          (bar_w, frame.shape[0]), (0, 220, 0), -1)
+            cv2.putText(frame, "GRIPPING...",
+                        (frame.shape[1]//2 - 90, frame.shape[0]//2),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 220, 0), 3)
+
+        if grip_elapsed >= GRIP_DELAY_S:
             self._state = State.DONE
             print("[VisionPipeline] Pick complete.")
 
@@ -277,6 +338,8 @@ class VisionPipeline:
         self._stage_start = time.time()
 
     def _timed_out(self) -> bool:
+        if self._no_timeout:
+            return False
         limit = STAGE_TIMEOUT.get(self._state.name, None)
         if limit is None:
             return False
@@ -295,13 +358,19 @@ if __name__ == "__main__":
     parser.add_argument("--port",    default="COM3", help="Teensy serial port (default COM3)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Skip serial communication (test without robot)")
+    parser.add_argument("--no-timeout", action="store_true",
+                        help="Disable stage timeouts (useful for manual testing)")
     args = parser.parse_args()
+
+    if args.no_timeout:
+        print("[VisionPipeline] Timeouts DISABLED — take as long as you need per stage")
 
     pipeline = VisionPipeline(
         shelf_id     = args.shelf,
         expected_sku = args.sku,
         teensy_port  = args.port,
         dry_run      = args.dry_run,
+        no_timeout   = args.no_timeout,
     )
 
     success = pipeline.run()
