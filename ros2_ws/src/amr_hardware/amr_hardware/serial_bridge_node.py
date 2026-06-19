@@ -14,11 +14,15 @@ class SerialBridgeNode(Node):
         self.declare_parameter('port', '/dev/ttyACM0')
         self.declare_parameter('baudrate', 115200)
         self.declare_parameter('odom_frame', 'odom')
-        self.declare_parameter('base_frame', 'base_link')
+        # base_footprint is the SLAM/nav2 convention: RSP handles the fixed
+        # base_footprint → base_link joint, keeping TF parents unambiguous.
+        self.declare_parameter('base_frame', 'base_footprint')
         self.declare_parameter('wheel_radius', 0.0625)
         self.declare_parameter('wheel_base', 0.65)
         self.declare_parameter('max_linear_accel', 1.0)   # m/s² — stops in ~0.5 s from 0.5 m/s
         self.declare_parameter('max_angular_accel', 2.0)  # rad/s² — stops in ~0.5 s from 1.0 rad/s
+        # 20-pulse magnetic encoder × planetary gearbox ratio → 1000 counts/wheel-rev.
+        self.declare_parameter('ticks_per_rev', 1000)
 
         port = self.get_parameter('port').get_parameter_value().string_value
         baudrate = self.get_parameter('baudrate').get_parameter_value().integer_value
@@ -28,6 +32,7 @@ class SerialBridgeNode(Node):
         self._wheel_base = self.get_parameter('wheel_base').get_parameter_value().double_value
         self._max_linear_accel = self.get_parameter('max_linear_accel').get_parameter_value().double_value
         self._max_angular_accel = self.get_parameter('max_angular_accel').get_parameter_value().double_value
+        self._ticks_per_rev = self.get_parameter('ticks_per_rev').get_parameter_value().integer_value
 
         self._ser = None
         self._open_serial(port, baudrate)
@@ -45,6 +50,8 @@ class SerialBridgeNode(Node):
         self._yaw = 0.0
         self._hdg_offset = 0.0   # IMU heading at startup, used to anchor odom frame
         self._prev_time = None
+        self._prev_lcnt: int | None = None
+        self._prev_rcnt: int | None = None
 
         self._odom_pub = self.create_publisher(Odometry, '/odom', 10)
         self._tf_broadcaster = tf2_ros.TransformBroadcaster(self)
@@ -137,18 +144,21 @@ class SerialBridgeNode(Node):
                 fields[key] = value
 
         try:
-            l_rpm = float(fields['L_RPM'])
-            r_rpm = float(fields['R_RPM'])
+            l_rpm   = float(fields['L_RPM'])
+            r_rpm   = float(fields['R_RPM']) * -1.0  # right-motor wiring is inverted
             hdg_deg = float(fields['Hdg'])
-            # Dist and Lcnt/Rcnt are parsed but reserved for future sensor-fusion use
+            # int(float(...)) tolerates firmware sending "150.0" for an integer counter
+            lcnt = int(float(fields['Lcnt']))
+            rcnt = int(float(fields['Rcnt']))
         except (KeyError, ValueError):
             return
 
         now = self.get_clock().now()
 
         if self._prev_time is None:
-            self._prev_time = now
-            # Anchor the odom frame to the robot's heading at startup
+            self._prev_time  = now
+            self._prev_lcnt  = lcnt
+            self._prev_rcnt  = rcnt
             self._hdg_offset = math.radians(hdg_deg)
             return
 
@@ -156,6 +166,16 @@ class SerialBridgeNode(Node):
         if dt <= 0.0:
             return
         self._prev_time = now
+
+        # L_RPM fallback: the firmware's instantaneous RPM calculation can return
+        # 0.0 while the encoder counter (Lcnt) is still incrementing.  Derive the
+        # true RPM from the tick delta so kinematics stay correct.
+        delta_lcnt = lcnt - self._prev_lcnt
+        if l_rpm == 0.0 and delta_lcnt != 0:
+            l_rpm = (delta_lcnt / self._ticks_per_rev) / dt * 60.0
+
+        self._prev_lcnt = lcnt
+        self._prev_rcnt = rcnt
 
         # IMU heading relative to startup orientation, normalized to [-π, π]
         raw_yaw = math.radians(hdg_deg) - self._hdg_offset

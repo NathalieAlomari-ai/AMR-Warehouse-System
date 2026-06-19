@@ -9,16 +9,8 @@ def generate_launch_description():
     nav_share   = get_package_share_directory('amr_navigation')
     slam_config = os.path.join(nav_share, 'config', 'mapper_params_online_async.yaml')
 
-    # Temporary fake odometry: publishes a static identity transform odom →
-    # base_footprint so slam_toolbox can build a map while the robot is moved
-    # manually (motors not yet wired into the full bringup).
-    fake_odom = Node(
-        package='tf2_ros',
-        executable='static_transform_publisher',
-        name='fake_odom',
-        arguments=['0', '0', '0', '0', '0', '0', 'odom', 'base_footprint'],
-        output='screen',
-    )
+    # fake_odom removed — real odom → base_footprint TF is now broadcast by
+    # serial_bridge_node using wheel-encoder differential-drive kinematics.
 
     slam = Node(
         package='slam_toolbox',
@@ -29,6 +21,5 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
-        fake_odom,
         slam,
     ])

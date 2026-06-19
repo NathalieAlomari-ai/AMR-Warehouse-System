@@ -246,6 +246,10 @@
     </inertial>
   </link>
 
+  <!-- rpy="0 0 0": LiDAR +X aligns with robot forward (+X), scan CCW from above.
+       If the unit is physically rotated 180° in yaw (cable toward front), use
+       rpy="0 0 ${pi}".  If mounted upside-down, use rpy="${pi} 0 0" AND set
+       inverted:True in the sllidar_node launch parameters. -->
   <joint name="laser_joint" type="fixed">
     <parent link="base_link"/>
     <child  link="laser"/>

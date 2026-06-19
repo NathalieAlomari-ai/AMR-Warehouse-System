@@ -39,10 +39,12 @@ def generate_launch_description():
     )
 
     # ── Serial Bridge (Teensy 4.1 ↔ ROS 2) ────────────────────────────────
-    # Receives wheel RPM + IMU heading over USB-serial and publishes /odom
-    # and the odom → base_footprint TF.  Kinematics must match the URDF.
-    # All serial parameters are explicit here — do NOT run this node manually
-    # alongside this launch file or two processes will fight over the port.
+    # Receives wheel RPM + IMU heading over USB-serial, computes differential-
+    # drive kinematics, and publishes /odom + the dynamic odom → base_footprint
+    # TF.  robot_state_publisher handles the fixed base_footprint → base_link
+    # joint, keeping every TF parent unique.
+    # Kinematics must match the URDF.  Do NOT run this node separately or two
+    # processes will fight over the serial port.
     serial_bridge = Node(
         package='amr_hardware',
         executable='serial_bridge_node',
@@ -53,6 +55,9 @@ def generate_launch_description():
             'baudrate':     115200,
             'wheel_radius': 0.0625,
             'wheel_base':   0.65,
+            'odom_frame':    'odom',
+            'base_frame':    'base_footprint',
+            'ticks_per_rev': 1000,
         }],
     )
 
