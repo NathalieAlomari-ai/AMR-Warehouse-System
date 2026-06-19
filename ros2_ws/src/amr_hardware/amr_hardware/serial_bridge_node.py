@@ -137,20 +137,29 @@ class SerialBridgeNode(Node):
 
     def _parse_telemetry(self, line: str) -> None:
         # Expected format: L_RPM:<f> R_RPM:<f> Hdg:<f> Dist:<f> Lcnt:<i> Rcnt:<i>
-        fields: dict[str, str] = {}
-        for token in line.split():
-            if ':' in token:
-                key, _, value = token.partition(':')
-                fields[key] = value
+
+        # Structural validation — reject corrupted lines before any conversion.
+        # A valid packet starts with "L_RPM:" and has exactly 6 key:value tokens.
+        if not line.startswith('L_RPM:'):
+            return
+        tokens = line.split()
+        if len(tokens) != 6:
+            return
 
         try:
+            fields: dict[str, str] = {}
+            for token in tokens:
+                if ':' in token:
+                    key, _, value = token.partition(':')
+                    fields[key] = value
+
             l_rpm   = float(fields['L_RPM'])
             r_rpm   = float(fields['R_RPM']) * -1.0  # right-motor wiring is inverted
             hdg_deg = float(fields['Hdg'])
             # int(float(...)) tolerates firmware sending "150.0" for an integer counter
             lcnt = int(float(fields['Lcnt']))
             rcnt = int(float(fields['Rcnt']))
-        except (KeyError, ValueError):
+        except Exception:
             return
 
         now = self.get_clock().now()
