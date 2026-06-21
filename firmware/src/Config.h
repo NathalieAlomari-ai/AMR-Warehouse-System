@@ -10,8 +10,10 @@
 //   Typical 775-class planetary motor: (11 encoder lines × 4) × 30:1 = 1320.
 // =============================================================================
 
-// Encoder pulses per full revolution of the OUTPUT shaft (after gearbox, quadrature ×4)
-static constexpr int   ENCODER_PPR       = 1320;
+// Encoder pulses per full revolution of the OUTPUT shaft (after gearbox).
+// Hardware measured: 20-pulse magnetic encoder through planetary gearbox → 4 ticks/wheel-rev
+// (confirmed with scope at 5 V supply; was previously mis-set to 1320).
+static constexpr int   ENCODER_PPR       = 4;
 
 // Physical dimensions — measure your actual robot
 static constexpr float WHEEL_DIAMETER_M  = 0.125f;   // metres  (65 mm example)
@@ -23,3 +25,11 @@ static constexpr float COUNTS_PER_METER  = (float)ENCODER_PPR / WHEEL_CIRCUMF_M;
 
 // Maximum believable output-shaft RPM (used to sanity-clamp velocity PID output)
 static constexpr float MAX_RPM           = 120.0f;
+
+// Velocity PID conservative baseline — tune from scratch, Ki last.
+// With 4 PPR and a 200 ms measurement window, one quantisation step is ~30 RPM;
+// gains above ~1.0 Kp will cause bang-bang oscillation at this resolution.
+static constexpr float VEL_KP            = 0.05f;
+static constexpr float VEL_KI            = 0.0f;
+static constexpr float VEL_KD            = 0.0f;
+static constexpr float VEL_ICLAMP        = 200.0f;
