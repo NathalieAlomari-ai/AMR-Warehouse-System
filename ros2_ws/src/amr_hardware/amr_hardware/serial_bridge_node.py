@@ -159,6 +159,15 @@ class SerialBridgeNode(Node):
             # int(float(...)) tolerates firmware sending "150.0" for an integer counter
             lcnt = int(float(fields['Lcnt']))
             rcnt = int(float(fields['Rcnt']))
+
+            # DEBUG — log the raw parsed strings for every field so we can
+            # distinguish a parsing bug from a firmware/hardware encoder fault.
+            # Remove once Rcnt updating is confirmed.
+            self.get_logger().info(
+                f'[parsed fields] L_RPM={fields["L_RPM"]} R_RPM={fields["R_RPM"]} '
+                f'Hdg={fields["Hdg"]} Dist={fields["Dist"]} '
+                f'Lcnt={fields["Lcnt"]}  Rcnt={fields["Rcnt"]}'
+            )
         except Exception:
             return
 

@@ -29,7 +29,6 @@ public:
 
         // P
         const float P = _kp * error;
-
         // I with clamp anti-windup: clamp the accumulator, not just the output.
         // This prevents the integrator from building up energy it cannot spend.
         _integral = constrain(_integral + error * dt, -_iClamp, _iClamp);
