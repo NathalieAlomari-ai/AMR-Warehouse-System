@@ -48,7 +48,7 @@ class SerialBridgeNode(Node):
         super().__init__('serial_bridge_node')
 
         # ── Parameters ───────────────────────────────────────────────────────
-        self.declare_parameter('port',             '/dev/ttyACM0')
+        self.declare_parameter('port',             '/dev/ttyACM1')
         self.declare_parameter('baudrate',         115200)
         self.declare_parameter('odom_frame',       'odom')
         # base_footprint: RSP handles the fixed base_footprint → base_link joint.
