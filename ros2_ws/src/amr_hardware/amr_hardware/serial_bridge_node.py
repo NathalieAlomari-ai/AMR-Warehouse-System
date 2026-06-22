@@ -197,30 +197,28 @@ class SerialBridgeNode(Node):
     # ── Telemetry parser ──────────────────────────────────────────────────────
 
     def _parse_telemetry(self, line: str) -> None:
-        # الكود كان يتوقع 6 توكنز فقط، سنقوم بتبسيط القراءة لتكون أكثر قوة
-        try:
-            # تنظيف السطر من أي مسافات زائدة
-            parts = line.replace('\t', ' ').split() 
-            
-            fields = {}
-            for part in parts:
-                if ':' in part:
-                    key, value = part.split(':', 1)
-                    fields[key] = value
-            
-            l_rpm   = float(fields['L_RPM'])
-            r_rpm   = float(fields['R_RPM']) * -1.0 
-            hdg_deg = float(fields['Hdg'])
-            lcnt    = int(fields['Lcnt'])
-            rcnt    = int(fields['Rcnt'])
-            
-            # (أكملي باقي منطق الحسابات كما كان في الكود الأصلي...)
-            self._process_data(l_rpm, r_rpm, hdg_deg, lcnt, rcnt) 
-
-        except Exception as e:
-            # هذه ستخبرنا لو فشل الـ Parsing في المستقبل
-            self.get_logger().warn(f"Parsing error: {e} | Line: {line}")
+        # Expected: "L_RPM:<f>  R_RPM:<f>  Hdg:<f>  Dist:<f>  Lcnt:<i>  Rcnt:<i>"
+        if not line.startswith('L_RPM:'):
             return
+        tokens = line.split()
+        if len(tokens) != 6:
+            return
+
+        try:
+            fields: dict[str, str] = {}
+            for token in tokens:
+                if ':' in token:
+                    key, _, value = token.partition(':')
+                    fields[key] = value
+
+            l_rpm   = float(fields['L_RPM'])
+            r_rpm   = float(fields['R_RPM']) * -1.0  # right motor wiring is inverted
+            hdg_deg = float(fields['Hdg'])
+            lcnt    = int(float(fields['Lcnt']))
+            rcnt    = int(float(fields['Rcnt']))
+        except Exception:
+            return
+
         now = self.get_clock().now()
 
         if self._prev_time is None:
