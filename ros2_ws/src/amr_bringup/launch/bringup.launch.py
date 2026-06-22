@@ -9,6 +9,7 @@ from launch_ros.parameter_descriptions import ParameterValue
 
 def generate_launch_description():
     amr_description_share = get_package_share_directory('amr_description')
+    amr_navigation_share  = get_package_share_directory('amr_navigation')
 
     xacro_file  = os.path.join(amr_description_share, 'urdf', 'amr_robot.urdf.xacro')
     rviz_config = os.path.join(amr_description_share, 'rviz', 'display.rviz')
@@ -16,8 +17,9 @@ def generate_launch_description():
     robot_description = ParameterValue(Command(['xacro ', xacro_file]), value_type=str)
 
     # ── Robot State Publisher ───────────────────────────────────────────────
-    # Publishes /robot_description and all static TF transforms from the URDF
-    # (base_footprint → base_link → laser, camera_link, etc.)
+    # Reads the URDF, publishes /robot_description, and broadcasts all fixed
+    # TF transforms declared in the URDF (base_footprint → base_link →
+    # laser, camera_link, lift_link, wheel links, caster links).
     robot_state_publisher = Node(
         package='robot_state_publisher',
         executable='robot_state_publisher',
@@ -25,25 +27,87 @@ def generate_launch_description():
         parameters=[{'robot_description': robot_description}],
     )
 
-    # ── RPLIDAR C1 ──────────────────────────────────────────────────────────
-    # frame_id overridden to 'laser' so /scan messages match the URDF TF
-    # tree without needing an extra static_transform_publisher.
+    # ── Joint State Publisher GUI ───────────────────────────────────────────
+    # Provides sliders for all non-fixed joints (drive wheels, lift_joint).
+    # Publishes /joint_states so robot_state_publisher can broadcast their TF.
+    # robot_description is passed directly so JSP-GUI does not need to wait
+    # for the /robot_description topic before populating its joint list.
+    joint_state_publisher_gui = Node(
+        package='joint_state_publisher_gui',
+        executable='joint_state_publisher_gui',
+        output='screen',
+        parameters=[{'robot_description': robot_description}],
+    )
+
+    # ── Serial Bridge (Teensy 4.1 ↔ ROS 2) ────────────────────────────────
+    # Publishes two independent sensor streams for the EKF:
+    #   /wheel/odometry  (nav_msgs/Odometry) — encoder-only differential-drive
+    #   /imu/data        (sensor_msgs/Imu)   — BNO055 heading in IMUPLUS mode
     #
-    # Alternative (if you cannot set frame_id here): add a
-    # static_transform_publisher node bridging the frames with a zero transform:
-    #   Node(package='tf2_ros', executable='static_transform_publisher',
-    #        arguments=['0','0','0','0','0','0','laser','laser'])
+    # publish_tf is FALSE: the EKF node (ekf_node, below) owns the
+    # odom → base_footprint transform.  Running two nodes that both broadcast
+    # the same TF edge causes a conflict that corrupts SLAM and Nav2.
+    #
+    # Kinematics must match the URDF.  Do NOT run this node separately or two
+    # processes will fight over the serial port.
+    serial_bridge = Node(
+        package='amr_hardware',
+        executable='serial_bridge_node',
+        name='serial_bridge_node',
+        output='screen',
+        parameters=[{
+            'port':              '/dev/ttyACM0',
+            'baudrate':          115200,
+            'wheel_radius':      0.0625,
+            'wheel_base':        0.65,
+            'odom_frame':        'odom',
+            'base_frame':        'base_footprint',
+            'ticks_per_rev':     1000,
+            'publish_tf':        False,   # EKF node owns odom → base_footprint
+        }],
+    )
+
+    # ── EKF Node (robot_localization) ──────────────────────────────────────
+    # Fuses /wheel/odometry (linear velocity) and /imu/data (yaw + yaw rate)
+    # into a smooth, consistent /odom estimate and broadcasts the
+    # odom → base_footprint TF that SLAM and Nav2 depend on.
+    #
+    # Configuration: amr_navigation/config/ekf.yaml
+    #   odom0  /wheel/odometry  → trust vx only (encoder yaw ignored: backlash)
+    #   imu0   /imu/data        → trust yaw + vyaw (BNO055 IMUPLUS gyro)
+    #   imu0_relative: true     → heading zeroed at boot (no magnetometer)
+    #
+    # Must start before SLAM / Nav2 so the TF tree is complete on their startup.
+    ekf_node = Node(
+        package='robot_localization',
+        executable='ekf_node',
+        name='ekf_node',
+        output='screen',
+        parameters=[os.path.join(amr_navigation_share, 'config', 'ekf.yaml')],
+        remappings=[
+            # ekf_node's default output topic is odometry/filtered.
+            # Remap to /odom so SLAM toolbox and Nav2 receive the fused estimate
+            # on the topic they are already configured to consume.
+            ('odometry/filtered', '/odom'),
+        ],
+    )
+
+    # ── SLLIDAR C1 ──────────────────────────────────────────────────────────
+    # frame_id must match the URDF link name 'laser' so /scan messages
+    # land in the correct TF frame without a separate static_transform_publisher.
     sllidar = Node(
         package='sllidar_ros2',
         executable='sllidar_node',
         name='sllidar_node',
         output='screen',
         parameters=[{
+            'channel_type':     'serial',
             'serial_port':      '/dev/ttyUSB0',
-            'serial_baudrate':  460800,          # RPLIDAR C1 baud rate
-            'frame_id':         'laser',    # ← matches URDF link name
+            'serial_baudrate':  460800,
+            'frame_id':         'laser',
             'inverted':         False,
             'angle_compensate': True,
+            'scan_mode':        'Standard',
         }],
     )
 
@@ -57,6 +121,9 @@ def generate_launch_description():
 
     return LaunchDescription([
         robot_state_publisher,
+        joint_state_publisher_gui,
+        serial_bridge,
+        ekf_node,       # must come after serial_bridge; starts TF before SLAM/Nav2
         sllidar,
         rviz2,
     ])

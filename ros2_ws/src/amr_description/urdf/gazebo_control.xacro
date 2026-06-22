@@ -21,7 +21,7 @@
     <material>Gazebo/Grey</material>
   </gazebo>
 
-  <gazebo reference="laser">
+  <gazebo reference="laser_frame">
     <material>Gazebo/Blue</material>
   </gazebo>
 
@@ -61,7 +61,8 @@
   <!-- =====================================================================
        Differential drive plugin
        Subscribes to /cmd_vel, publishes /odom and /tf (odom → base_footprint).
-       Wheel separation and diameter must match CLAUDE.md locked values.
+       wheel_separation = 2 * wheel_y = 2 * 0.270 = 0.540 m
+       wheel_diameter   = 2 * wheel_radius = 2 * 0.065 = 0.130 m
        ===================================================================== -->
   <gazebo>
     <plugin name="diff_drive_controller" filename="libgazebo_ros_diff_drive.so">
@@ -75,8 +76,7 @@
       <left_joint>left_wheel_joint</left_joint>
       <right_joint>right_wheel_joint</right_joint>
 
-      <!-- LOCKED — from CLAUDE.md -->
-      <wheel_separation>0.550</wheel_separation>
+      <wheel_separation>0.540</wheel_separation>
       <wheel_diameter>0.130</wheel_diameter>
 
       <max_wheel_torque>200</max_wheel_torque>
