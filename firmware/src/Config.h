@@ -35,6 +35,6 @@ static constexpr float MAX_RPM           = 120.0f;
 // Starting point: Kp=0.10, Ki=2.0.  If a motor oscillates (hunts), halve Ki first.
 // If steady-state error persists, double Ki.  Raise Kp only if response is sluggish.
 static constexpr float VEL_KP            = 0.8f;
-static constexpr float VEL_KI            = 0.0f;
+static constexpr float VEL_KI            = 1.0f;
 static constexpr float VEL_KD            = 0.0f;
 static constexpr float VEL_ICLAMP        = 200.0f;

@@ -24,7 +24,7 @@ slam_toolbox:
     map_update_interval:      5.0    # seconds between full map updates
     resolution:               0.05   # metres per cell
     max_laser_range:          12.0   # metres — SLLIDAR C1 max range
-    minimum_time_interval:    0.5
+    minimum_time_interval:    0.1
     transform_timeout:        0.2
     tf_buffer_duration:       30.0
     stack_size_to_use:        40000000
@@ -35,8 +35,8 @@ slam_toolbox:
     # -----------------------------------------------------------------
     use_scan_matching:               true
     use_scan_barycenter:             true
-    minimum_travel_distance:         0.5
-    minimum_travel_heading:          0.5
+    minimum_travel_distance:         0.1
+    minimum_travel_heading:          0.1
     scan_buffer_size:                10
     scan_buffer_maximum_scan_distance: 10.0
     link_match_minimum_response_fine:  0.1
