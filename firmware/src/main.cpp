@@ -170,12 +170,12 @@ void loop() {
     if (outerTick) {
         outerTick = false;
 
-        // Telemetry — parse with Serial Plotter or a host-side logger
-        Serial.print("L_RPM:");    Serial.print(leftMotor.getActualRPM(),  1);
-        Serial.print("\tR_RPM:");  Serial.print(rightMotor.getActualRPM(), 1);
-        Serial.print("\tHdg:");    Serial.print(drive.getHeadingDeg(),      1);
-        Serial.print("\tDist:");   Serial.print(drive.getAverageDistance(), 3);
-        Serial.print("\tLcnt:");   Serial.print(leftMotor.getEncoderCount());
-        Serial.print("\tRcnt:");   Serial.println(rightMotor.getEncoderCount());
+    // استبدلي \t بمسافة " " لضمان التوافق مع الـ Serial Bridge
+Serial.print("L_RPM: ");    Serial.print(leftMotor.getActualRPM(), 1);
+Serial.print(" R_RPM: ");   Serial.print(rightMotor.getActualRPM(), 1);
+Serial.print(" Hdg: ");     Serial.print(drive.getHeadingDeg(), 1);
+Serial.print(" Dist: ");    Serial.print(drive.getAverageDistance(), 3);
+Serial.print(" Lcnt: ");    Serial.print(leftMotor.getEncoderCount());
+Serial.print(" Rcnt: ");    Serial.println(rightMotor.getEncoderCount());
     }
 }

@@ -11,8 +11,7 @@ def generate_launch_description():
     amr_description_share = get_package_share_directory('amr_description')
     amr_navigation_share  = get_package_share_directory('amr_navigation')
 
-    xacro_file  = os.path.join(amr_description_share, 'urdf', 'amr_robot.urdf.xacro')
-    rviz_config = os.path.join(amr_description_share, 'rviz', 'display.rviz')
+    xacro_file = os.path.join(amr_description_share, 'urdf', 'amr_robot.urdf.xacro')
 
     robot_description = ParameterValue(Command(['xacro ', xacro_file]), value_type=str)
 
@@ -23,18 +22,6 @@ def generate_launch_description():
     robot_state_publisher = Node(
         package='robot_state_publisher',
         executable='robot_state_publisher',
-        output='screen',
-        parameters=[{'robot_description': robot_description}],
-    )
-
-    # ── Joint State Publisher GUI ───────────────────────────────────────────
-    # Provides sliders for all non-fixed joints (drive wheels, lift_joint).
-    # Publishes /joint_states so robot_state_publisher can broadcast their TF.
-    # robot_description is passed directly so JSP-GUI does not need to wait
-    # for the /robot_description topic before populating its joint list.
-    joint_state_publisher_gui = Node(
-        package='joint_state_publisher_gui',
-        executable='joint_state_publisher_gui',
         output='screen',
         parameters=[{'robot_description': robot_description}],
     )
@@ -56,13 +43,13 @@ def generate_launch_description():
         name='serial_bridge_node',
         output='screen',
         parameters=[{
-            'port':              '/dev/ttyACM0',
+            'port':              '/dev/serial/by-id/usb-Teensyduino_USB_Serial_16042450-if00',
             'baudrate':          115200,
             'wheel_radius':      0.0625,
             'wheel_base':        0.65,
             'odom_frame':        'odom',
             'base_frame':        'base_footprint',
-            'ticks_per_rev':     1000,
+            'ticks_per_rev':     2700,
             'publish_tf':        False,   # EKF node owns odom → base_footprint
         }],
     )
@@ -102,7 +89,7 @@ def generate_launch_description():
         output='screen',
         parameters=[{
             'channel_type':     'serial',
-            'serial_port':      '/dev/ttyUSB0',
+            'serial_port':      '/dev/serial/by-id/usb-Silicon_Labs_CP2102N_USB_to_UART_Bridge_Controller_0e2cebbea9d5ef1182e96e4b49d2c684-if00-port0',
             'serial_baudrate':  460800,
             'frame_id':         'laser',
             'inverted':         False,
@@ -111,19 +98,9 @@ def generate_launch_description():
         }],
     )
 
-    # ── RViz2 ───────────────────────────────────────────────────────────────
-    rviz2 = Node(
-        package='rviz2',
-        executable='rviz2',
-        output='screen',
-        arguments=['-d', rviz_config],
-    )
-
     return LaunchDescription([
         robot_state_publisher,
-        joint_state_publisher_gui,
         serial_bridge,
         ekf_node,       # must come after serial_bridge; starts TF before SLAM/Nav2
         sllidar,
-        rviz2,
     ])
