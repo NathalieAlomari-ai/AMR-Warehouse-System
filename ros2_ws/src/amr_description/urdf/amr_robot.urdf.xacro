@@ -78,11 +78,11 @@
     </link>
 
     <!-- Wheel centre is at the bottom face of the base (same height as wheel_radius) -->
-    <!-- PRESENTATION MODE: fixed joint — revert to type="continuous" + axis for live odometry -->
-    <joint name="${name}_wheel_joint" type="fixed">
+    <joint name="${name}_wheel_joint" type="continuous">
       <parent link="base_link"/>
       <child  link="${name}_wheel_link"/>
       <origin xyz="${wheel_x} ${y_sign * wheel_y} ${-(base_height / 2.0)}" rpy="0 0 0"/>
+      <axis xyz="0 1 0"/>
     </joint>
 
   </xacro:macro>
