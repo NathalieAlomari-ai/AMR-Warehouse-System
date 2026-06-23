@@ -79,6 +79,18 @@ def generate_launch_description():
         ],
     )
 
+    # ── Joint State Publisher ───────────────────────────────────────────────
+    # Publishes zero positions for the continuous wheel joints so that
+    # robot_state_publisher can broadcast their TF frames without warnings.
+    # On real hardware the actual wheel angles are not needed for SLAM or Nav2
+    # (only the odom pose from EKF matters); this keeps the TF tree complete.
+    joint_state_publisher = Node(
+        package='joint_state_publisher',
+        executable='joint_state_publisher',
+        name='joint_state_publisher',
+        output='screen',
+    )
+
     # ── SLLIDAR C1 ──────────────────────────────────────────────────────────
     # frame_id must match the URDF link name 'laser' so /scan messages
     # land in the correct TF frame without a separate static_transform_publisher.
@@ -100,6 +112,7 @@ def generate_launch_description():
 
     return LaunchDescription([
         robot_state_publisher,
+        joint_state_publisher,
         serial_bridge,
         ekf_node,       # must come after serial_bridge; starts TF before SLAM/Nav2
         sllidar,
