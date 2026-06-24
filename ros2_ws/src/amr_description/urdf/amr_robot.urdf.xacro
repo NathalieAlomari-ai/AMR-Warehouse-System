@@ -218,7 +218,7 @@
 
   <!-- =====================================================================
        SLLIDAR C1  (topic: /scan, frame: laser)
-       Front of the top surface: X = +0.25 m from base_link centre.
+       Rear of the top surface: X = -0.25 m from base_link centre.
        Joint Z = base_height/2 + lidar_height/2 → cylinder bottom flush with chassis top
        (= 0.160 + 0.030 = 0.190 m above base_link centre with 320 mm chassis height).
        ===================================================================== -->
@@ -253,13 +253,13 @@
   <joint name="laser_joint" type="fixed">
     <parent link="base_link"/>
     <child  link="laser"/>
-    <origin xyz="0.25 0.0 ${base_height / 2.0 + lidar_height / 2.0}" rpy="0 0 0"/>
+    <origin xyz="-0.25 0.0 ${base_height / 2.0 + lidar_height / 2.0}" rpy="0 0 0"/>
   </joint>
 
   <!-- =====================================================================
        Orbbec Astra Pro depth camera  (topic: /camera/depth/points)
-       Mounted on the front face of base_link, centred on the chassis height,
-       facing forward (+X). Origin X = 0.32 m = front edge of base_link.
+       Mounted on the rear face of base_link, centred on the chassis height,
+       facing rearward (-X). Origin X = -0.32 m = rear edge of base_link.
        ===================================================================== -->
   <link name="camera_link">
     <visual>
@@ -288,7 +288,7 @@
   <joint name="camera_joint" type="fixed">
     <parent link="base_link"/>
     <child  link="camera_link"/>
-    <origin xyz="0.32 0 0" rpy="0 0 0"/>
+    <origin xyz="-0.32 0 0" rpy="0 0 ${pi}"/>
   </joint>
 
 </robot>
