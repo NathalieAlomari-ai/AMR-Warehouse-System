@@ -8,7 +8,7 @@
 //  Left motor driver (BTS7960 #2):
 //    RPWM=6  LPWM=7  R_EN=8  L_EN=9
 //  Right encoder:  A=20  B=21
-//  Left  encoder:  A=22  B=23
+//  Left  encoder:  A=23  B=22  (A/B swapped so forward reads +positive)
 //  BNO055 IMU:     SDA=18  SCL=19  (Teensy 4.1 hardware I2C, Wire)
 //  Both BTS7960 VCC → Teensy 3.3V  (NOT 5V)
 //  All GND rails commoned including 24V supply −
@@ -38,11 +38,17 @@ MotorDriver leftDriver (6, 7, 8, 9);
 
 // Quadrature encoders  (pin A, pin B)
 // All Teensy 4.1 pins support external interrupts; the Encoder library uses them.
+// Left encoder A/B are swapped so forward motion reads positive on both sides,
+// matching the positive-RPM-forward convention used by serial_bridge_node.
 Encoder rightEnc(20, 21);
-Encoder leftEnc (22, 23);
+Encoder leftEnc (23, 22);
 
-MotorController rightMotor(rightDriver, rightEnc, ENCODER_PPR);
-MotorController leftMotor (leftDriver,  leftEnc,  ENCODER_PPR);
+// motorInverted=true for left: LPWM is the forward direction on the left BTS7960,
+// so the duty sign must be negated before setSpeed().  Right: RPWM = forward.
+// maxRpm differs because the two motors have different free-running speeds at
+// full duty — see MAX_RPM_LEFT / MAX_RPM_RIGHT in Config.h.
+MotorController rightMotor(rightDriver, rightEnc, ENCODER_PPR, false, MAX_RPM_RIGHT);
+MotorController leftMotor (leftDriver,  leftEnc,  ENCODER_PPR, true,  MAX_RPM_LEFT);
 
 DriveSystem drive(leftMotor, rightMotor);
 

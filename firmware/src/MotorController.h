@@ -3,51 +3,80 @@
 #include <Encoder.h>
 #include "Config.h"
 #include "MotorDriver.h"
+#include "PIDController.h"
 
-// MotorController — one wheel: BTS7960 driver + quadrature encoder, open-loop.
+// MotorController — one wheel: BTS7960 driver + quadrature encoder, closed-loop.
 //
-// setTargetRPM() maps the requested RPM linearly to a PWM duty cycle [-255, 255]
-// using MAX_RPM as the full-scale reference. No feedback is applied.
-// RPM reported by getActualRPM() is for telemetry only (averaged over 500 ms).
+// motorInverted=true for the LEFT motor: the BTS7960 wiring makes LPWM the forward
+// direction for the left wheel (opposite of the right), so the duty sign must be
+// negated before calling setSpeed().  The encoder pin swap (23, 22) already ensures
+// both encoders read +positive for forward, so this flag only affects the driver.
+//
+// maxRpm must match the motor's actual free-running RPM at full duty (255).
+// It scales the open-loop feed-forward.  Left motor free-run ≈ 200 RPM;
+// right ≈ 120 RPM.  An under-estimated value over-drives the motor on spin-up.
 
 class MotorController {
 public:
-    static constexpr int RPM_WINDOW_N = 25;  // 25 × 20 ms = 500 ms averaging window
+    static constexpr int TELEM_N = 25;  // 25 × 20 ms = 500 ms telemetry window
 
-    MotorController(MotorDriver& driver, Encoder& encoder, int pulsesPerRev)
+    MotorController(MotorDriver& driver, Encoder& encoder, int pulsesPerRev,
+                    bool motorInverted = false, float maxRpm = MAX_RPM_RIGHT)
         : _driver(driver), _enc(encoder), _ppr(pulsesPerRev),
-          _lastCount(0), _actualRPM(0.f),
-          _accumDelta(0), _accumN(0) {}
+          _motorInverted(motorInverted), _maxRpm(maxRpm),
+          _lastCount(0), _targetRPM(0.f), _actualRPM(0.f), _telemRPM(0.f),
+          _accumDelta(0), _accumN(0),
+          _pid(VEL_KP, VEL_KI, VEL_KD, -255.f, 255.f, VEL_ICLAMP) {}
 
     void begin() {
         _driver.begin();
         _lastCount = _enc.read();
     }
 
-    // Call at 50 Hz to keep the telemetry RPM estimate fresh. dt in seconds.
+    // Call at 50 Hz (dt = 0.02 s) — reads encoder, runs PID, drives motor.
     void update(float dt) {
         const long count = _enc.read();
         const long delta = count - _lastCount;
         _lastCount = count;
 
+        // Per-tick RPM for closed-loop control (both encoders positive = forward)
+        _actualRPM = ((float)delta / (float)_ppr) * (60.0f / dt);
+
+        // 500 ms rolling average for telemetry only
         _accumDelta += delta;
-        _accumN++;
-        if (_accumN >= RPM_WINDOW_N) {
-            const float windowSec = dt * (float)RPM_WINDOW_N;
-            _actualRPM = ((float)_accumDelta / (float)_ppr) * (60.0f / windowSec);
+        if (++_accumN >= TELEM_N) {
+            _telemRPM   = ((float)_accumDelta / (float)_ppr) * (60.0f / (dt * TELEM_N));
             _accumDelta = 0;
             _accumN     = 0;
         }
+
+        // Open-loop feed-forward: supplies ~95% of the needed duty instantly so the
+        // PID only needs to trim the residual error (usually < 10 RPM).
+        // Without this, the integrator must wind up from zero before the motor spins,
+        // causing slow start and severe windup that makes stopping unreliable.
+        const float ffDuty = _targetRPM / _maxRpm * 255.0f;
+
+        // PID correction on top of feed-forward
+        const float correction = _pid.compute(_targetRPM, _actualRPM, dt);
+
+        const int duty = (int)constrain(ffDuty + correction, -255.f, 255.f);
+
+        // Left motor (motorInverted=true): LPWM = forward, so negate duty so that
+        // setSpeed(negative) activates LPWM.  Right motor: setSpeed(positive) = RPWM = forward.
+        _driver.setSpeed(_motorInverted ? -duty : duty);
     }
 
-    // Open-loop: maps rpm linearly to duty cycle and drives the motor immediately.
+    // Store target; PID runs in update(). Resets integrator when stopping
+    // to prevent integral windup carrying over to the next move.
     void setTargetRPM(float rpm) {
-        rpm = constrain(rpm, -MAX_RPM, MAX_RPM);
-        const int duty = (int)(rpm / MAX_RPM * 255.0f);
-        _driver.setSpeed(duty);
+        _targetRPM = constrain(rpm, -_maxRpm, _maxRpm);
+        if (fabsf(_targetRPM) < 0.1f) {
+            _pid.reset();
+            _driver.setSpeed(0);
+        }
     }
 
-    float getActualRPM()    const { return _actualRPM; }
+    float getActualRPM()    const { return _telemRPM; }
     long  getEncoderCount() const { return _lastCount; }
 
     void resetEncoder() {
@@ -55,14 +84,20 @@ public:
         _lastCount  = 0;
         _accumDelta = 0;
         _accumN     = 0;
+        _pid.reset();
     }
 
 private:
-    MotorDriver& _driver;
-    Encoder&     _enc;
-    const int    _ppr;
-    long         _lastCount;
-    float        _actualRPM;
-    long         _accumDelta;
-    int          _accumN;
+    MotorDriver&  _driver;
+    Encoder&      _enc;
+    const int     _ppr;
+    const bool    _motorInverted;
+    const float   _maxRpm;
+    long          _lastCount;
+    float         _targetRPM;
+    float         _actualRPM;
+    float         _telemRPM;
+    long          _accumDelta;
+    int           _accumN;
+    PIDController _pid;
 };
