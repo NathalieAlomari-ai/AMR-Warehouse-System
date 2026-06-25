@@ -43,11 +43,10 @@ MotorDriver leftDriver (6, 7, 8, 9);
 Encoder rightEnc(20, 21);
 Encoder leftEnc (23, 22);
 
-// inverted=true for left motor: the raw encoder still counts negative for forward
-// even with swapped pins (hardware polarity), and LPWM is the forward direction on
-// the left BTS7960.  The inverted flag corrects both in MotorController.
-// maxRpm differs because the two motors have different free-running speeds —
-// see MAX_RPM_LEFT / MAX_RPM_RIGHT in Config.h.
+// motorInverted=true for left: LPWM is the forward direction on the left BTS7960,
+// so the duty sign must be negated before setSpeed().  Right: RPWM = forward.
+// maxRpm differs because the two motors have different free-running speeds at
+// full duty — see MAX_RPM_LEFT / MAX_RPM_RIGHT in Config.h.
 MotorController rightMotor(rightDriver, rightEnc, ENCODER_PPR, false, MAX_RPM_RIGHT);
 MotorController leftMotor (leftDriver,  leftEnc,  ENCODER_PPR, true,  MAX_RPM_LEFT);
 
