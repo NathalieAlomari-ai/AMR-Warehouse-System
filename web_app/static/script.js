@@ -825,3 +825,212 @@ function escapeHtml(str) {
   div.textContent = str || '';
   return div.innerHTML;
 }
+
+/* ════════════════════════════════════════════════════════════════════
+   VERTICAL NAV SCROLL SPY
+   Updates .active class on v-nav items as user scrolls through sections.
+   ════════════════════════════════════════════════════════════════════ */
+;(function initVNav() {
+  const vnav = document.getElementById('vNav');
+  if (!vnav) return;
+
+  const items = vnav.querySelectorAll('.v-nav-item[href^="#"]');
+  const sections = [];
+
+  items.forEach(item => {
+    const id  = item.getAttribute('href').slice(1);
+    const sec = document.getElementById(id);
+    if (sec) sections.push({ item, sec });
+  });
+
+  function updateActive() {
+    const trigger = window.innerHeight * 0.45;
+    let activeSec = sections[0];
+
+    sections.forEach(entry => {
+      if (entry.sec.getBoundingClientRect().top <= trigger) {
+        activeSec = entry;
+      }
+    });
+
+    items.forEach(i => i.classList.remove('active'));
+    if (activeSec) activeSec.item.classList.add('active');
+  }
+
+  window.addEventListener('scroll', updateActive, { passive: true });
+  updateActive();
+})();
+
+/* ════════════════════════════════════════════════════════════════════
+   STEEL, CODE & VISION — IMAGE STACK CAROUSEL
+   Stacked card effect that fans on hover, auto-advances every 5s.
+   Photos: static/images/work-01.jpg … work-10.jpg
+   ════════════════════════════════════════════════════════════════════ */
+;(function initImageStack() {
+  const scene = document.getElementById('imageStackScene');
+  if (!scene) return;
+
+  /* Caption / description data for each photo */
+  const PHOTOS = [
+    { src: '/static/images/work-01.jpg', caption: 'Design & Fabrication',       desc: 'Starting with SolidWorks CAD models and precision sheet metal work at the UTB workshop.' },
+    { src: '/static/images/work-02.jpg', caption: 'Chassis Assembly',           desc: 'Welding and assembling the main robot chassis with precision-cut aluminum profiles.' },
+    { src: '/static/images/work-03.jpg', caption: 'Electronics Wiring',         desc: 'Integrating the Jetson Orin Nano, motor controllers, and power distribution board.' },
+    { src: '/static/images/work-04.jpg', caption: 'LiDAR Mounting',             desc: 'Installing the LiDAR sensor at the optimal height for full 360° environmental mapping.' },
+    { src: '/static/images/work-05.jpg', caption: 'Vision System Integration',  desc: 'Mounting and calibrating the Astra Pro depth camera for medicine box detection.' },
+    { src: '/static/images/work-06.jpg', caption: 'Suction Actuator Build',     desc: 'Fabricating the pneumatic suction lifting mechanism for precise box pickup.' },
+    { src: '/static/images/work-07.jpg', caption: 'ROS2 Bring-Up',              desc: 'First successful ROS2 node communication and motor controller initialization test.' },
+    { src: '/static/images/work-08.jpg', caption: 'Navigation Testing',         desc: 'Testing SLAM-based autonomous navigation in the UTB warehouse lab environment.' },
+    { src: '/static/images/work-09.jpg', caption: 'Full System Integration',    desc: 'All subsystems running: vision, navigation, lifting, and the web dashboard together.' },
+    { src: '/static/images/work-10.jpg', caption: 'Final Demo',                 desc: 'Navixa completing a full pick-and-deliver cycle autonomously during the final demo.' },
+  ];
+
+  const captionEl  = document.getElementById('stackCaption');
+  const descEl     = document.getElementById('stackDesc');
+  const currentEl  = document.getElementById('stackCurrentNum');
+  const totalEl    = document.getElementById('stackTotalNum');
+  const dotsEl     = document.getElementById('stackDots');
+  const prevBtn    = document.getElementById('stackPrev');
+  const nextBtn    = document.getElementById('stackNext');
+  const progressEl = document.getElementById('stackProgress');
+
+  let current    = 0;
+  let isAnimating = false;
+  let autoTimer;
+  let isHovered  = false;
+
+  /* Clear the placeholder hint, inject real cards */
+  scene.innerHTML = '';
+
+  const cards = PHOTOS.map((photo, i) => {
+    const card = document.createElement('div');
+    card.className = 'stack-card';
+    card.dataset.index = i;
+
+    const img   = document.createElement('img');
+    img.src     = photo.src;
+    img.alt     = photo.caption;
+    img.loading = i === 0 ? 'eager' : 'lazy';
+
+    /* If image fails (file not saved yet) — show a text placeholder */
+    img.onerror = () => {
+      card.classList.add('stack-card--no-img');
+      card.innerHTML = `<div class="stack-card-placeholder"><span>${escapeHtml(photo.caption)}</span></div>`;
+    };
+
+    card.appendChild(img);
+    scene.appendChild(card);
+    return card;
+  });
+
+  /* Build nav dots */
+  if (totalEl) totalEl.textContent = PHOTOS.length;
+
+  if (dotsEl) {
+    PHOTOS.forEach((_, i) => {
+      const dot = document.createElement('div');
+      dot.className = 'stack-dot' + (i === 0 ? ' active' : '');
+      dot.addEventListener('click', () => goTo(i));
+      dotsEl.appendChild(dot);
+    });
+  }
+
+  /* ── Position cards in the stack ── */
+  function applyPositions(fanOut) {
+    const n    = PHOTOS.length;
+    const SHOW = 4;   /* max cards visible behind active */
+
+    cards.forEach((card, i) => {
+      const offset = ((i - current + n) % n);
+
+      card.style.transition = 'transform 0.5s cubic-bezier(0.34,1.2,0.64,1), opacity 0.4s ease';
+
+      if (offset === 0) {
+        card.style.zIndex    = '10';
+        card.style.opacity   = '1';
+        card.style.transform = 'translateX(0) translateY(0) rotate(0deg) scale(1)';
+        card.classList.add('active');
+
+      } else if (offset <= SHOW) {
+        card.classList.remove('active');
+        const spread = fanOut ? 30 : 20;
+        const xShift = offset * spread;
+        const yShift = fanOut ? offset * 5 : offset * 9;
+        const rot    = fanOut ? offset * 7 : offset * 5;
+        const sc     = 1 - offset * 0.07;
+        const op     = Math.max(0, 1 - offset * 0.28);
+
+        card.style.zIndex    = String(10 - offset);
+        card.style.opacity   = String(op);
+        card.style.transform =
+          `translateX(${xShift}px) translateY(${yShift}px) rotate(${rot}deg) scale(${sc})`;
+
+      } else {
+        card.classList.remove('active');
+        card.style.zIndex    = '0';
+        card.style.opacity   = '0';
+        card.style.transform = 'translateX(80px) scale(0.7)';
+      }
+    });
+  }
+
+  function updateUI() {
+    const photo = PHOTOS[current];
+    if (captionEl)  captionEl.textContent  = photo.caption;
+    if (descEl)     descEl.textContent     = photo.desc;
+    if (currentEl)  currentEl.textContent  = current + 1;
+    if (progressEl) progressEl.style.width = `${((current + 1) / PHOTOS.length) * 100}%`;
+
+    if (dotsEl) {
+      dotsEl.querySelectorAll('.stack-dot').forEach((dot, i) => {
+        dot.classList.toggle('active', i === current);
+      });
+    }
+  }
+
+  function goTo(idx) {
+    if (isAnimating) return;
+    isAnimating = true;
+    current     = ((idx % PHOTOS.length) + PHOTOS.length) % PHOTOS.length;
+    applyPositions(isHovered);
+    updateUI();
+    setTimeout(() => { isAnimating = false; }, 520);
+  }
+
+  function next() { goTo(current + 1); }
+  function prev() { goTo(current - 1); }
+
+  function resetAuto() {
+    clearInterval(autoTimer);
+    autoTimer = setInterval(next, 5000);
+  }
+
+  /* Fan out on hover */
+  scene.addEventListener('mouseenter', () => {
+    isHovered = true;
+    clearInterval(autoTimer);
+    applyPositions(true);
+  });
+
+  scene.addEventListener('mouseleave', () => {
+    isHovered = false;
+    applyPositions(false);
+    resetAuto();
+  });
+
+  /* Swipe to navigate on mobile */
+  let swipeX = 0;
+  scene.addEventListener('touchstart', e => { swipeX = e.touches[0].clientX; }, { passive: true });
+  scene.addEventListener('touchend',   e => {
+    const dx = e.changedTouches[0].clientX - swipeX;
+    if (Math.abs(dx) > 50) { dx < 0 ? next() : prev(); }
+  }, { passive: true });
+
+  /* Buttons */
+  if (prevBtn) prevBtn.addEventListener('click', prev);
+  if (nextBtn) nextBtn.addEventListener('click', next);
+
+  /* Init */
+  applyPositions(false);
+  updateUI();
+  resetAuto();
+})();
