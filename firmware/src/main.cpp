@@ -38,8 +38,10 @@ MotorDriver leftDriver (6, 7, 8, 9);
 
 // Quadrature encoders  (pin A, pin B)
 // All Teensy 4.1 pins support external interrupts; the Encoder library uses them.
+// Left encoder A/B are swapped so forward motion reads positive on both sides,
+// matching the positive-RPM-forward convention used by serial_bridge_node.
 Encoder rightEnc(20, 21);
-Encoder leftEnc (22, 23);
+Encoder leftEnc (23, 22);
 
 MotorController rightMotor(rightDriver, rightEnc, ENCODER_PPR);
 MotorController leftMotor (leftDriver,  leftEnc,  ENCODER_PPR);
