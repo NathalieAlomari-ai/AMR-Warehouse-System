@@ -212,7 +212,7 @@ class SerialBridgeNode(Node):
                     fields[key] = value
 
             l_rpm   = float(fields['L_RPM'])
-            r_rpm   = float(fields['R_RPM']) * -1.0  # right motor wiring is inverted
+            r_rpm   = float(fields['R_RPM'])  # right encoder reads +positive for forward
             hdg_deg = float(fields['Hdg'])
             lcnt    = int(float(fields['Lcnt']))
             rcnt    = int(float(fields['Rcnt']))

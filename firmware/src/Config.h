@@ -23,18 +23,27 @@ static constexpr float WHEEL_BASE_M      = 0.65f;    // metres  (wheel centre-to
 static constexpr float WHEEL_CIRCUMF_M   = WHEEL_DIAMETER_M * 3.14159265f;
 static constexpr float COUNTS_PER_METER  = (float)ENCODER_PPR / WHEEL_CIRCUMF_M;
 
-// Maximum believable output-shaft RPM (used to sanity-clamp velocity PID output)
-static constexpr float MAX_RPM           = 120.0f;
+// Per-motor free-running max RPM at full duty (measured: duty=170/255 drove left at
+// 132 RPM → free-run max = 132×255/170 ≈ 200; right at ~77 RPM → ≈ 116 ≈ 120).
+// Scales the open-loop feed-forward in MotorController. An under-estimated value
+// over-drives the motor; an over-estimated value under-drives it.
+static constexpr float MAX_RPM_LEFT      = 200.0f;
+static constexpr float MAX_RPM_RIGHT     = 120.0f;
 
-// Velocity PID — with 4 PPR and a 200 ms window one quantisation step ≈ 30 RPM.
-// Ki is the primary steady-state corrector: it integrates away the persistent
-// speed difference caused by each motor's unique friction and back-EMF, something
-// a P-only controller can never do.  Kp gives a fast initial kick; Kd stays 0
-// because derivative on step-like quantised feedback is pure noise.
+// Velocity PID gains.
+// Kp gives an immediate proportional correction to RPM error.
+// Ki integrates away the persistent offset between motors (friction, back-EMF).
+// Kd stays 0: derivative on per-tick encoder counts is pure noise.
 //
-// Starting point: Kp=0.10, Ki=2.0.  If a motor oscillates (hunts), halve Ki first.
-// If steady-state error persists, double Ki.  Raise Kp only if response is sluggish.
+// Tuning guide:
+//   Still drifts after 2–3 s  → raise Ki (try 2.0)
+//   Motors oscillate/shake    → lower Kp (try 0.5)
+//   Sluggish speed correction → raise Kp (try 1.2)
+//   One motor runs at max     → VEL_ICLAMP still too high; halve it
 static constexpr float VEL_KP            = 0.8f;
 static constexpr float VEL_KI            = 1.0f;
 static constexpr float VEL_KD            = 0.0f;
-static constexpr float VEL_ICLAMP        = 200.0f;
+// Clamp on the integral accumulator (RPM·s).  Keep small — the feed-forward
+// already provides ~95% of the needed duty; the integral only corrects residual
+// error (~5–10 RPM).  Large values cause windup and make stopping unreliable.
+static constexpr float VEL_ICLAMP        = 20.0f;
