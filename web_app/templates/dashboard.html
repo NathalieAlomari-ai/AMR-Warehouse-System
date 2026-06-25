@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Navixa — Operator Dashboard</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<div class="bg-grid" aria-hidden="true"></div>
+
+<div class="dashboard-layout">
+
+  <!-- ── Top Bar ──────────────────────────────────────────────────────── -->
+  <header class="dash-topbar" role="banner">
+
+    <a href="{{ url_for('index') }}" class="dash-logo" aria-label="Navixa home">
+      <div class="dash-logo-icon" aria-hidden="true">🤖</div>
+      Navi<span>xa</span>
+    </a>
+
+    <div class="dash-topbar-center">
+      <!-- Live connection indicator — updated by JS every 2s -->
+      <div class="connection-indicator offline" id="connectionBadge" role="status" aria-live="polite">
+        <span class="connection-dot" aria-hidden="true"></span>
+        <span id="connectionText">Connecting…</span>
+      </div>
+      <span class="last-update" id="lastUpdate" aria-live="polite">—</span>
+    </div>
+
+    <div class="dash-topbar-right">
+      <!-- EMERGENCY STOP — always visible, single click, no confirm -->
+      <button
+        class="emergency-stop-btn"
+        id="emergencyStopBtn"
+        aria-label="Emergency stop — halt robot immediately"
+        onclick="emergencyStop()"
+      >
+        <span class="stop-icon" aria-hidden="true">⛔</span>
+        <span class="stop-label">STOP</span>
+      </button>
+
+      <a href="{{ url_for('logout') }}" class="logout-btn" aria-label="Log out">
+        ↩ Logout
+      </a>
+    </div>
+  </header>
+
+  <!-- ── Dashboard Grid ───────────────────────────────────────────────── -->
+  <main class="dash-body" role="main">
+
+    <!-- ╔══════════════════════════════╗
+         ║  1. ROBOT STATUS PANEL       ║
+         ╚══════════════════════════════╝ -->
+    <section class="status-panel" aria-labelledby="status-panel-title">
+
+      <div class="panel-header">
+        <h2 class="panel-title" id="status-panel-title">🤖 Robot Status</h2>
+        <div class="badge badge-idle" id="statusBadge" role="status" aria-live="polite">
+          <span class="badge-dot" aria-hidden="true"></span>
+          <span id="statusBadgeText">IDLE</span>
+        </div>
+      </div>
+
+      <!-- Primary state display -->
+      <div class="robot-state-display idle" id="stateDisplay">
+        <div class="robot-icon" aria-hidden="true" id="robotIcon">🤖</div>
+        <div class="robot-state-text">
+          <div class="robot-state-label">Current State</div>
+          <div class="robot-state-value idle" id="robotStateValue">IDLE</div>
+        </div>
+      </div>
+
+      <!-- Meta info grid -->
+      <div class="robot-meta">
+
+        <div class="robot-meta-item">
+          <div class="robot-meta-label">Current Order</div>
+          <div class="robot-meta-value" id="currentOrderDisplay">—</div>
+        </div>
+
+        <div class="robot-meta-item">
+          <div class="robot-meta-label">Battery</div>
+          <div class="robot-meta-value" id="batteryDisplay">—</div>
+          <div class="battery-bar" aria-hidden="true">
+            <div class="battery-fill" id="batteryFill" style="width:0%"></div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ╔══════════════════════════════╗
+         ║  2. VISION PIPELINE PANEL    ║
+         ╚══════════════════════════════╝ -->
+    <section class="pipeline-panel" aria-labelledby="pipeline-panel-title">
+
+      <div class="panel-header">
+        <h2 class="panel-title" id="pipeline-panel-title">👁 Vision Pipeline</h2>
+        <span class="section-label" style="margin:0" id="pipelineStageLabel">Waiting</span>
+      </div>
+
+      <div class="pipeline-stages" role="list" aria-label="Vision pipeline stages">
+
+        <div class="pipeline-stage" id="stage-IDLE" role="listitem" data-stage="IDLE">
+          <div class="stage-indicator" aria-hidden="true"></div>
+          <span class="stage-name">IDLE — Standby</span>
+          <span class="stage-icon" aria-hidden="true">💤</span>
+          <span class="stage-check" aria-hidden="true">✓</span>
+        </div>
+
+        <div class="pipeline-stage" id="stage-NAVIGATING" role="listitem" data-stage="NAVIGATING">
+          <div class="stage-indicator" aria-hidden="true"></div>
+          <span class="stage-name">NAVIGATING — Moving to shelf</span>
+          <span class="stage-icon" aria-hidden="true">🧭</span>
+          <span class="stage-check" aria-hidden="true">✓</span>
+        </div>
+
+        <div class="pipeline-stage" id="stage-SCANNING QR" role="listitem" data-stage="SCANNING QR">
+          <div class="stage-indicator" aria-hidden="true"></div>
+          <span class="stage-name">SCANNING QR — Reading shelf code</span>
+          <span class="stage-icon" aria-hidden="true">📷</span>
+          <span class="stage-check" aria-hidden="true">✓</span>
+        </div>
+
+        <div class="pipeline-stage" id="stage-DETECTING BOX" role="listitem" data-stage="DETECTING BOX">
+          <div class="stage-indicator" aria-hidden="true"></div>
+          <span class="stage-name">DETECTING BOX — AI box detection</span>
+          <span class="stage-icon" aria-hidden="true">👁️</span>
+          <span class="stage-check" aria-hidden="true">✓</span>
+        </div>
+
+        <div class="pipeline-stage" id="stage-ALIGNING" role="listitem" data-stage="ALIGNING">
+          <div class="stage-indicator" aria-hidden="true"></div>
+          <span class="stage-name">ALIGNING — Positioning gripper</span>
+          <span class="stage-icon" aria-hidden="true">🎯</span>
+          <span class="stage-check" aria-hidden="true">✓</span>
+        </div>
+
+        <div class="pipeline-stage" id="stage-LIFTING" role="listitem" data-stage="LIFTING">
+          <div class="stage-indicator" aria-hidden="true"></div>
+          <span class="stage-name">LIFTING — Suction pickup</span>
+          <span class="stage-icon" aria-hidden="true">🦾</span>
+          <span class="stage-check" aria-hidden="true">✓</span>
+        </div>
+
+        <div class="pipeline-stage" id="stage-DELIVERING" role="listitem" data-stage="DELIVERING">
+          <div class="stage-indicator" aria-hidden="true"></div>
+          <span class="stage-name">DELIVERING — En route to drop zone</span>
+          <span class="stage-icon" aria-hidden="true">📦</span>
+          <span class="stage-check" aria-hidden="true">✓</span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ╔══════════════════════════════╗
+         ║  3. PLACE ORDER PANEL        ║
+         ╚══════════════════════════════╝ -->
+    <section class="order-panel" aria-labelledby="order-panel-title">
+
+      <div class="panel-header">
+        <h2 class="panel-title" id="order-panel-title">📋 Place Order</h2>
+      </div>
+
+      <!-- Warning shown when an order is already active -->
+      <div class="order-warning" id="orderWarning" role="alert" aria-live="polite">
+        ⚠ An order is currently active. Wait for it to complete before placing a new one.
+      </div>
+
+      <!-- Success toast -->
+      <div class="order-success-toast" id="orderSuccessToast" role="status" aria-live="polite"></div>
+
+      <div class="order-form">
+        <div class="form-group">
+          <label class="form-label" for="shelfInput">Shelf ID</label>
+          <input
+            class="form-input"
+            type="text"
+            id="shelfInput"
+            placeholder="e.g. SHELF_A07"
+            maxlength="20"
+            autocomplete="off"
+            aria-describedby="shelfHint"
+          >
+          <span id="shelfHint" style="font-size:var(--text-xs);color:var(--white-30);margin-top:4px">
+            Format: SHELF_A07 · will be auto-uppercased
+          </span>
+        </div>
+
+        <button
+          class="btn btn-primary order-submit-btn btn-ripple"
+          id="submitOrderBtn"
+          onclick="submitOrder()"
+          aria-label="Submit pick order for entered shelf"
+        >
+          <span aria-hidden="true">🚀</span> Send Order
+        </button>
+      </div>
+
+    </section>
+
+    <!-- ╔══════════════════════════════╗
+         ║  4. LIVE ORDER QUEUE         ║
+         ╚══════════════════════════════╝ -->
+    <section class="queue-panel" aria-labelledby="queue-panel-title">
+
+      <div class="panel-header">
+        <h2 class="panel-title" id="queue-panel-title">⏳ Live Queue</h2>
+        <span class="badge badge-idle" id="queueCount" aria-live="polite">0 orders</span>
+      </div>
+
+      <div id="queueList" aria-live="polite" aria-label="Active order queue">
+        <div class="queue-empty" id="queueEmpty">No active orders</div>
+      </div>
+
+    </section>
+
+    <!-- ╔══════════════════════════════╗
+         ║  5. ORDER HISTORY            ║
+         ╚══════════════════════════════╝ -->
+    <section class="history-panel" aria-labelledby="history-panel-title">
+
+      <div class="panel-header">
+        <h2 class="panel-title" id="history-panel-title">🗂 Order History</h2>
+        <span class="section-label" style="margin:0" id="historyCount">0 completed</span>
+      </div>
+
+      <div class="table-wrapper">
+        <table aria-label="Order history log">
+          <thead>
+            <tr>
+              <th scope="col">Order ID</th>
+              <th scope="col">Shelf</th>
+              <th scope="col">Status</th>
+              <th scope="col">Placed</th>
+              <th scope="col">Completed</th>
+            </tr>
+          </thead>
+          <tbody id="historyBody">
+            <tr>
+              <td colspan="5" class="history-empty">No completed orders yet</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </section>
+
+  </main><!-- /.dash-body -->
+</div><!-- /.dashboard-layout -->
+
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

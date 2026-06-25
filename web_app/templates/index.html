@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Navixa — Autonomous Medicine Delivery Robot</title>
+  <meta name="description" content="Navixa is an autonomous mobile robot designed for overnight medicine box delivery in warehouse environments.">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+  <!-- Galaxy canvas — interactive star field, driven by script.js -->
+  <canvas id="galaxyCanvas" aria-hidden="true"></canvas>
+
+  <!-- ── Navigation ──────────────────────────────────────────────── -->
+  <nav class="navbar" id="navbar" role="navigation" aria-label="Main navigation">
+    <a href="#" class="nav-logo" aria-label="Navixa home">
+      <div class="nav-logo-icon" aria-hidden="true">🤖</div>
+      Navi<span>xa</span>
+    </a>
+
+    <ul class="nav-links" id="navLinks" role="list">
+      <li><a href="#how"  class="nav-link">How It Works</a></li>
+      <li><a href="#tech" class="nav-link">Technology</a></li>
+      <li><a href="#team" class="nav-link">Team</a></li>
+      <li>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-primary nav-cta">
+          Enter Dashboard
+        </a>
+      </li>
+    </ul>
+
+    <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+  </nav>
+
+  <!-- ── Hero ────────────────────────────────────────────────────── -->
+  <section class="hero" aria-labelledby="hero-title">
+
+    <div class="container">
+      <p class="hero-eyebrow">NAVIXA</p>
+
+      <h1 class="hero-title" id="hero-title">
+        The Future of<br>
+        <span class="hero-title-accent">Warehouse Delivery</span><br>
+        Is Autonomous
+      </h1>
+
+      <p class="hero-subtitle">
+        Navixa navigates your warehouse overnight — picking and delivering medicine
+        boxes with precision .
+      </p>
+
+      <div class="hero-actions">
+        <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-ripple">
+          <span>⚡</span>  Dashboard
+        </a>
+        <a href="#how" class="btn btn-outline">
+          See How It Works
+        </a>
+      </div>
+
+      <div class="hero-stats">
+        <div class="hero-stat">
+          <div class="hero-stat-number" data-count="7">0</div>
+          <div class="hero-stat-label">Autonomous Stages</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-number" data-count="360">0</div>
+          <div class="hero-stat-label">° LiDAR Coverage</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-number" data-count="100">0</div>
+          <div class="hero-stat-label">% Overnight Operation</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-number" data-count="4">0</div>
+          <div class="hero-stat-label">Subsystems Integrated</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── How It Works ────────────────────────────────────────────── -->
+  <section class="how-section" id="how" aria-labelledby="how-title">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-label">Process</span>
+        <h2 class="section-title" id="how-title">How Navixa Works</h2>
+        <p class="section-subtitle">Three steps from order to delivery — fully autonomous</p>
+      </div>
+
+      <div class="steps-grid">
+        <div class="step-card reveal">
+          <div class="step-number">
+            <span class="step-icon">📋</span>
+          </div>
+          <h3 class="step-title">Place Order</h3>
+          <p class="step-desc">
+            Operator enters a shelf ID (e.g. SHELF_A07) in the dashboard.
+            The command is instantly sent to the robot via MQTT over the local network.
+          </p>
+        </div>
+
+        <div class="step-card reveal">
+          <div class="step-number">
+            <span class="step-icon">🧭</span>
+          </div>
+          <h3 class="step-title">Robot Navigates</h3>
+          <p class="step-desc">
+            Navixa builds a real-time map using LiDAR SLAM and navigates to the
+            target shelf, scanning QR codes and detecting the correct medicine box
+            with AI vision.
+          </p>
+        </div>
+
+        <div class="step-card reveal">
+          <div class="step-number">
+            <span class="step-icon">📦</span>
+          </div>
+          <h3 class="step-title">Box Delivered</h3>
+          <p class="step-desc">
+            The suction-based lifting system picks the box and delivers it to the
+            drop zone. The operator is notified in real time — order marked complete.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Technology ──────────────────────────────────────────────── -->
+  <section class="tech-section" id="tech" aria-labelledby="tech-title">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-label">Technology Stack</span>
+        <h2 class="section-title" id="tech-title">Built on Cutting-Edge Hardware</h2>
+        <p class="section-subtitle">Four integrated subsystems working as one</p>
+      </div>
+
+      <div class="tech-grid">
+        <div class="tech-card reveal">
+          <span class="tech-icon">📡</span>
+          <h3 class="tech-name">LiDAR SLAM</h3>
+          <p class="tech-desc">Real-time 360° mapping and simultaneous localization for precise autonomous navigation</p>
+        </div>
+
+        <div class="tech-card reveal">
+          <span class="tech-icon">👁️</span>
+          <h3 class="tech-name">AI Vision</h3>
+          <p class="tech-desc">Astra Pro depth camera with computer vision for QR scanning and medicine box detection</p>
+        </div>
+
+        <div class="tech-card reveal">
+          <span class="tech-icon">🔧</span>
+          <h3 class="tech-name">ROS2</h3>
+          <p class="tech-desc">Robot Operating System 2 for inter-node communication and navigation stack integration</p>
+        </div>
+
+        <div class="tech-card reveal">
+          <span class="tech-icon">🧠</span>
+          <h3 class="tech-name">Jetson Orin Nano</h3>
+          <p class="tech-desc">NVIDIA's edge AI platform running the complete autonomy stack at 40 TOPS performance</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Team ────────────────────────────────────────────────────── -->
+  <section class="team-section" id="team" aria-labelledby="team-title">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-label">The Team</span>
+        <h2 class="section-title" id="team-title">Built by Engineers</h2>
+        <p class="section-subtitle">Four disciplines. One robot.</p>
+      </div>
+
+      <div class="team-grid">
+        <div class="team-card reveal">
+          <div class="team-avatar" aria-hidden="true">N</div>
+          <h3 class="team-name">Nathalie Ahmed</h3>
+          <p class="team-role-title">Navigation Lead</p>
+          <p class="team-dept">Mechatronics Engineering</p>
+          <p class="team-subsystem">Navigation · SLAM Subsystem</p>
+        </div>
+
+        <div class="team-card reveal">
+          <div class="team-avatar" aria-hidden="true">A</div>
+          <h3 class="team-name">Abdalla Elsiddig</h3>
+          <p class="team-role-title">Vision & Systems Lead</p>
+          <p class="team-dept">Informatics Engineering</p>
+          <p class="team-subsystem">Vision · Battery Management · UI · Web System</p>
+        </div>
+
+        <div class="team-card reveal">
+          <div class="team-avatar" aria-hidden="true">M</div>
+          <h3 class="team-name">Mahanna Alhumaimi</h3>
+          <p class="team-role-title">Mechanical Lead</p>
+          <p class="team-dept">Mechatronics Engineering</p>
+          <p class="team-subsystem">Mechanical Subsystem</p>
+        </div>
+
+        <div class="team-card reveal">
+          <div class="team-avatar" aria-hidden="true">Z</div>
+          <h3 class="team-name">Zahra Jassim</h3>
+          <p class="team-role-title">Actuation Lead</p>
+          <p class="team-dept">Informatics Engineering</p>
+          <p class="team-subsystem">Lifting · Suctioning Subsystem</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Footer ──────────────────────────────────────────────────── -->
+  <footer class="footer">
+    <p class="footer-text">
+      © 2026 <span>Navixa</span> · Abdalla Elsiddig ·
+  Nathalie Ahmed · Mahanna Alhumaimi · Zahra Jassim
+    </p>
+  </footer>
+
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
