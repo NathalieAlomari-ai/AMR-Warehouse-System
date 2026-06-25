@@ -23,6 +23,7 @@ slam_toolbox:
     transform_publish_period: 0.02   # seconds; 0 = never
     map_update_interval:      5.0    # seconds between full map updates
     resolution:               0.05   # metres per cell
+    minimum_laser_range:      0.15   # metres — SLLIDAR C1 min range is 0.1 m
     max_laser_range:          12.0   # metres — SLLIDAR C1 max range
     minimum_time_interval:    0.1
     transform_timeout:        0.2
