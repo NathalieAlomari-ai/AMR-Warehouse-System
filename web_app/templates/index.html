@@ -81,7 +81,7 @@
       </div>
 
       <p class="hero-eyebrow">NAVIXA</p>
-      <h1 class="hero-title" id="hero-title">The Future of<br>Warehouse Delivery<br><span class="hero-title-accent">Is Autonomous</span></h1>
+      <h1 class="hero-title" id="hero-title">The Future of<br><span class="hero-title-accent">Warehouse Delivery</span><br>Is Autonomous</h1>
       <p class="hero-subtitle">Navixa navigates your warehouse overnight — picking and delivering medicine boxes with precision.</p>
 
       <div class="hero-actions">
@@ -330,74 +330,71 @@
        TEAM SHOWCASE (makviesainte style)
        Photo-ready cards: save team-*.jpg to static/images/
        ═══════════════════════════════════════════════════════════ -->
+  <!-- ═══════════════════════════════════════════════════════════════════
+       TEAM — ravikatiyar162/photo-stack translation
+       Interactive stacked card deck: hover fans out, click cycles.
+       ═══════════════════════════════════════════════════════════════════ -->
   <section class="team-section" id="team" aria-labelledby="team-title">
     <div class="container">
       <div class="section-header">
         <span class="section-label">The Team</span>
-        <h2 class="section-title" id="team-title">Built by Engineers</h2>
+        <h2 class="section-title" id="team-title">Our Creative Team</h2>
         <p class="section-subtitle">Four disciplines. One robot.</p>
       </div>
 
-      <div class="team-showcase-grid">
+      <div class="ps-scene">
 
-        <div class="ts-card reveal">
-          <div class="ts-photo-wrap">
-            <img src="{{ url_for('static', filename='images/team-nathalie.jpg') }}" alt="Nathalie Ahmed" class="ts-photo" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-            <div class="ts-avatar-fallback" style="display:none">N</div>
-            <div class="ts-photo-overlay">
-              <span class="ts-overlay-role">Navigation Lead</span>
-            </div>
+        <!-- Card deck -->
+        <div class="ps-stack" id="photoStack" role="group" aria-label="Team member photos — click to cycle">
+
+          <div class="ps-card"
+               data-name="Nathalie Ahmed"
+               data-role="Navigation &amp; SLAM"
+               data-dept="Mechatronics Engineering">
+            <img src="{{ url_for('static', filename='images/team-nathalie.jpg') }}" alt="Nathalie Ahmed" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+            <div class="ps-fallback" style="display:none">N</div>
           </div>
-          <div class="ts-info">
-            <h3 class="ts-name">Nathalie Ahmed</h3>
-            <p class="ts-title">Navigation &amp; SLAM</p>
-            <p class="ts-dept">Mechatronics Engineering</p>
+
+          <div class="ps-card"
+               data-name="Abdalla Elsiddig"
+               data-role="Vision · Battery · UI · Web"
+               data-dept="Informatics Engineering">
+            <img src="{{ url_for('static', filename='images/team-abdalla.jpg') }}" alt="Abdalla Elsiddig" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+            <div class="ps-fallback" style="display:none">A</div>
           </div>
+
+          <div class="ps-card"
+               data-name="Mahanna Alhumaimi"
+               data-role="Mechanical Subsystem"
+               data-dept="Mechatronics Engineering">
+            <img src="{{ url_for('static', filename='images/team-mahanna.jpg') }}" alt="Mahanna Alhumaimi" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+            <div class="ps-fallback" style="display:none">M</div>
+          </div>
+
+          <div class="ps-card"
+               data-name="Zahra Jassim"
+               data-role="Lifting &amp; Suction"
+               data-dept="Informatics Engineering">
+            <img src="{{ url_for('static', filename='images/team-zahra.jpg') }}" alt="Zahra Jassim" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+            <div class="ps-fallback" style="display:none">Z</div>
+          </div>
+
         </div>
 
-        <div class="ts-card reveal ts-card--featured">
-          <div class="ts-photo-wrap">
-            <img src="{{ url_for('static', filename='images/team-abdalla.jpg') }}" alt="Abdalla Elsiddig" class="ts-photo" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-            <div class="ts-avatar-fallback" style="display:none">A</div>
-            <div class="ts-photo-overlay">
-              <span class="ts-overlay-role">Vision &amp; Systems Lead</span>
-            </div>
-          </div>
-          <div class="ts-info">
-            <h3 class="ts-name">Abdalla Elsiddig</h3>
-            <p class="ts-title">Vision · Battery · UI · Web</p>
-            <p class="ts-dept">Informatics Engineering</p>
-          </div>
-        </div>
+        <!-- Info panel -->
+        <div class="ps-info-panel">
+          <p class="ps-active-name" id="psActiveName">Nathalie Ahmed</p>
+          <p class="ps-active-role" id="psActiveRole">Navigation &amp; SLAM</p>
+          <p class="ps-active-dept" id="psActiveDept">Mechatronics Engineering</p>
 
-        <div class="ts-card reveal">
-          <div class="ts-photo-wrap">
-            <img src="{{ url_for('static', filename='images/team-mahanna.jpg') }}" alt="Mahanna Alhumaimi" class="ts-photo" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-            <div class="ts-avatar-fallback" style="display:none">M</div>
-            <div class="ts-photo-overlay">
-              <span class="ts-overlay-role">Mechanical Lead</span>
-            </div>
+          <div class="ps-dots" id="psDots" aria-label="Team member navigation">
+            <button class="ps-dot active" data-idx="0" aria-label="Nathalie Ahmed"></button>
+            <button class="ps-dot" data-idx="1" aria-label="Abdalla Elsiddig"></button>
+            <button class="ps-dot" data-idx="2" aria-label="Mahanna Alhumaimi"></button>
+            <button class="ps-dot" data-idx="3" aria-label="Zahra Jassim"></button>
           </div>
-          <div class="ts-info">
-            <h3 class="ts-name">Mahanna Alhumaimi</h3>
-            <p class="ts-title">Mechanical Subsystem</p>
-            <p class="ts-dept">Mechatronics Engineering</p>
-          </div>
-        </div>
 
-        <div class="ts-card reveal">
-          <div class="ts-photo-wrap">
-            <img src="{{ url_for('static', filename='images/team-zahra.jpg') }}" alt="Zahra Jassim" class="ts-photo" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-            <div class="ts-avatar-fallback" style="display:none">Z</div>
-            <div class="ts-photo-overlay">
-              <span class="ts-overlay-role">Actuation Lead</span>
-            </div>
-          </div>
-          <div class="ts-info">
-            <h3 class="ts-name">Zahra Jassim</h3>
-            <p class="ts-title">Lifting &amp; Suction</p>
-            <p class="ts-dept">Informatics Engineering</p>
-          </div>
+          <p class="ps-hint">Hover to fan · Click to cycle</p>
         </div>
 
       </div>

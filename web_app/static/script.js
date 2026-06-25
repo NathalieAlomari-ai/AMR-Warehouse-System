@@ -281,15 +281,16 @@ let lastUpdateTime = null;
 let prevState      = null;   // detect state changes for animations
 let tickerId       = null;   // "X seconds ago" counter
 
-/* Robot state → matching icon */
+/* Robot state → matching SVG icon (set via innerHTML) */
+const _SVG = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
 const STATE_ICONS = {
-  'IDLE':         '🤖',
-  'NAVIGATING':   '🧭',
-  'SCANNING QR':  '📷',
-  'DETECTING BOX':'👁️',
-  'ALIGNING':     '🎯',
-  'LIFTING':      '🦾',
-  'DELIVERING':   '📦',
+  'IDLE':          _SVG('<rect x="4" y="4" width="16" height="16" rx="3"/><rect x="9" y="9" width="6" height="6" rx="1"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/>'),
+  'NAVIGATING':    _SVG('<polygon points="12,2 22,22 12,17 2,22"/>'),
+  'SCANNING QR':   _SVG('<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><line x1="14" y1="14" x2="16" y2="14"/><line x1="21" y1="14" x2="21" y2="17"/><line x1="14" y1="18" x2="18" y2="18"/><line x1="18" y1="21" x2="21" y2="21"/><line x1="18" y1="18" x2="18" y2="21"/>'),
+  'DETECTING BOX': _SVG('<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>'),
+  'ALIGNING':      _SVG('<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="8"/><line x1="12" y1="16" x2="12" y2="22"/><line x1="2" y1="12" x2="8" y2="12"/><line x1="16" y1="12" x2="22" y2="12"/>'),
+  'LIFTING':       _SVG('<line x1="12" y1="20" x2="12" y2="4"/><polyline points="6,10 12,4 18,10"/><line x1="4" y1="20" x2="20" y2="20"/>'),
+  'DELIVERING':    _SVG('<path d="M1 4h15l3 5v5H1z"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><line x1="1" y1="9" x2="19" y2="9"/>'),
 };
 
 /* ════════════════════════════════════════════════════════════════════
@@ -515,7 +516,7 @@ function updateStatusPanel(robot) {
     display.className = 'robot-state-display ' + (isActive ? 'active' : 'idle');
   }
   if (iconEl) {
-    iconEl.textContent = STATE_ICONS[stateVal] || '🤖';
+    iconEl.innerHTML = STATE_ICONS[stateVal] || STATE_ICONS['IDLE'];
   }
 
   /* Status badge */
@@ -918,6 +919,126 @@ function escapeHtml(str) {
 
   window.addEventListener('scroll', update, { passive: true });
   window.addEventListener('resize', update, { passive: true });
+})();
+
+/* ════════════════════════════════════════════════════════════════════
+   PHOTO STACK  (ravikatiyar162/photo-stack translation)
+   4 cards stacked with rotation offset.
+   Hover → cards fan out wide.
+   Click card / dot → bring that card to front.
+   ════════════════════════════════════════════════════════════════════ */
+;(function initPhotoStack() {
+  const stack = document.getElementById('photoStack');
+  if (!stack) return;
+
+  const cards   = Array.from(stack.querySelectorAll('.ps-card'));
+  const nameEl  = document.getElementById('psActiveName');
+  const roleEl  = document.getElementById('psActiveRole');
+  const deptEl  = document.getElementById('psActiveDept');
+  const dots    = Array.from(document.querySelectorAll('.ps-dot'));
+  const N       = cards.length;
+
+  /* order[0] = index of front card */
+  let order   = cards.map((_, i) => i);
+  let fanned  = false;
+
+  /* Stacked positions: slight left-drift + rotation, front card on top */
+  const STACK = [
+    { x:  0,  y:  0,  rot: -1,  z: N   },
+    { x: -7,  y:  6,  rot: -6,  z: N-1 },
+    { x: -14, y: 12,  rot: -11, z: N-2 },
+    { x: -21, y: 18,  rot: -16, z: N-3 },
+  ];
+
+  /* Fanned positions: spread horizontally with alternating rotations */
+  const FAN = [
+    { x:  132, y:  0, rot:  16, z: N   },
+    { x:  44,  y:  0, rot:   5, z: N-1 },
+    { x: -44,  y:  0, rot:  -5, z: N-2 },
+    { x: -132, y:  0, rot: -16, z: N-3 },
+  ];
+
+  function applyPositions() {
+    const pos = fanned ? FAN : STACK;
+    order.forEach((cardIdx, slot) => {
+      const card = cards[cardIdx];
+      const p    = pos[slot] || pos[pos.length - 1];
+      card.style.transform = `translate(${p.x}px, ${p.y}px) rotate(${p.rot}deg)`;
+      card.style.zIndex    = String(p.z);
+    });
+  }
+
+  function updateInfo() {
+    const front = cards[order[0]];
+    if (nameEl) {
+      nameEl.style.opacity = '0';
+      setTimeout(() => {
+        nameEl.textContent   = front.dataset.name || '';
+        nameEl.style.opacity = '1';
+      }, 120);
+    }
+    if (roleEl) {
+      roleEl.style.opacity = '0';
+      setTimeout(() => {
+        roleEl.innerHTML     = front.dataset.role || '';
+        roleEl.style.opacity = '1';
+      }, 140);
+    }
+    if (deptEl) {
+      deptEl.style.opacity = '0';
+      setTimeout(() => {
+        deptEl.textContent   = front.dataset.dept || '';
+        deptEl.style.opacity = '1';
+      }, 160);
+    }
+    dots.forEach((dot, i) => dot.classList.toggle('active', order[0] === i));
+  }
+
+  /* Initial render — no transition on first paint */
+  cards.forEach(c => { c.style.transition = 'none'; });
+  applyPositions();
+  updateInfo();
+  requestAnimationFrame(() => {
+    cards.forEach(c => {
+      c.style.transition = 'transform 0.55s cubic-bezier(0.34,1.4,0.64,1), box-shadow 0.3s ease, z-index 0s';
+    });
+  });
+
+  /* Hover: fan / collapse */
+  stack.addEventListener('mouseenter', () => { fanned = true;  applyPositions(); });
+  stack.addEventListener('mouseleave', () => { fanned = false; applyPositions(); });
+
+  /* Click anywhere on stack: cycle front card to back */
+  stack.addEventListener('click', e => {
+    const clicked = e.target.closest('.ps-card');
+    if (clicked) {
+      const clickedIdx = cards.indexOf(clicked);
+      const posInOrder = order.indexOf(clickedIdx);
+      if (posInOrder === 0) {
+        order.push(order.shift());
+      } else {
+        order.splice(posInOrder, 1);
+        order.unshift(clickedIdx);
+      }
+    } else {
+      order.push(order.shift());
+    }
+    applyPositions();
+    updateInfo();
+  });
+
+  /* Dot navigation */
+  dots.forEach(dot => {
+    dot.addEventListener('click', e => {
+      e.stopPropagation();
+      const target = parseInt(dot.dataset.idx, 10);
+      const pos    = order.indexOf(target);
+      if (pos > 0) { order.splice(pos, 1); order.unshift(target); }
+      else if (pos < 0) { order.unshift(target); }
+      applyPositions();
+      updateInfo();
+    });
+  });
 })();
 
 /* end of landing page scripts */

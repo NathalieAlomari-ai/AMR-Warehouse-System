@@ -12,16 +12,26 @@
 
 <div class="dashboard-layout">
 
-  <!-- ── Top Bar ──────────────────────────────────────────────────────── -->
+  <!-- ── Top Bar ──────────────────────────────────────────────────────────── -->
   <header class="dash-topbar" role="banner">
 
     <a href="{{ url_for('index') }}" class="dash-logo" aria-label="Navixa home">
-      <div class="dash-logo-icon" aria-hidden="true">🤖</div>
+      <svg class="dash-logo-icon" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <rect x="1" y="1" width="30" height="30" rx="6" stroke="#FF6B00" stroke-width="1.5" fill="rgba(10,10,10,0.7)"/>
+        <line x1="9" y1="7" x2="9" y2="25" stroke="white" stroke-width="3.5" stroke-linecap="round"/>
+        <line x1="23" y1="7" x2="23" y2="25" stroke="white" stroke-width="3.5" stroke-linecap="round"/>
+        <line x1="9" y1="7" x2="23" y2="25" stroke="white" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="9"  cy="8"  r="2.2" fill="#0A0A0A" stroke="#FF6B00" stroke-width="1.2"/>
+        <circle cx="9"  cy="8"  r="1"   fill="#FF6B00"/>
+        <circle cx="16" cy="16" r="2.2" fill="#0A0A0A" stroke="#FF6B00" stroke-width="1.2"/>
+        <circle cx="16" cy="16" r="1"   fill="#FF6B00"/>
+        <circle cx="23" cy="24" r="2.2" fill="#0A0A0A" stroke="#FF6B00" stroke-width="1.2"/>
+        <circle cx="23" cy="24" r="1"   fill="#FF6B00"/>
+      </svg>
       Navi<span>xa</span>
     </a>
 
     <div class="dash-topbar-center">
-      <!-- Live connection indicator — updated by JS every 2s -->
       <div class="connection-indicator offline" id="connectionBadge" role="status" aria-live="polite">
         <span class="connection-dot" aria-hidden="true"></span>
         <span id="connectionText">Connecting…</span>
@@ -30,56 +40,77 @@
     </div>
 
     <div class="dash-topbar-right">
-      <!-- EMERGENCY STOP — always visible, single click, no confirm -->
-      <button
-        class="emergency-stop-btn"
-        id="emergencyStopBtn"
-        aria-label="Emergency stop — halt robot immediately"
-        onclick="emergencyStop()"
-      >
-        <span class="stop-icon" aria-hidden="true">⛔</span>
+      <!-- EMERGENCY STOP -->
+      <button class="emergency-stop-btn" id="emergencyStopBtn"
+              aria-label="Emergency stop — halt robot immediately"
+              onclick="emergencyStop()">
+        <svg class="stop-icon-svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <rect x="4" y="4" width="16" height="16" rx="3"/>
+        </svg>
         <span class="stop-label">STOP</span>
       </button>
 
       <a href="{{ url_for('logout') }}" class="logout-btn" aria-label="Log out">
-        ↩ Logout
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" aria-hidden="true">
+          <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+          <polyline points="16 17 21 12 16 7"/>
+          <line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+        Logout
       </a>
     </div>
   </header>
 
-  <!-- ── Dashboard Grid ───────────────────────────────────────────────── -->
+  <!-- ── Dashboard Grid ───────────────────────────────────────────────────── -->
   <main class="dash-body" role="main">
 
     <!-- ╔══════════════════════════════╗
-         ║  1. ROBOT STATUS PANEL       ║
+         ║  1. ROBOT STATUS             ║
          ╚══════════════════════════════╝ -->
     <section class="status-panel" aria-labelledby="status-panel-title">
 
       <div class="panel-header">
-        <h2 class="panel-title" id="status-panel-title">🤖 Robot Status</h2>
+        <h2 class="panel-title" id="status-panel-title">
+          <span class="panel-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="4" y="4" width="16" height="16" rx="3"/>
+              <rect x="9" y="9" width="6" height="6" rx="1"/>
+              <line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/>
+              <line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/>
+              <line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/>
+              <line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/>
+            </svg>
+          </span>
+          Robot Status
+        </h2>
         <div class="badge badge-idle" id="statusBadge" role="status" aria-live="polite">
           <span class="badge-dot" aria-hidden="true"></span>
           <span id="statusBadgeText">IDLE</span>
         </div>
       </div>
 
-      <!-- Primary state display -->
       <div class="robot-state-display idle" id="stateDisplay">
-        <div class="robot-icon" aria-hidden="true" id="robotIcon">🤖</div>
+        <div class="robot-icon" id="robotIcon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="4" y="4" width="16" height="16" rx="3"/>
+            <rect x="9" y="9" width="6" height="6" rx="1"/>
+            <line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/>
+            <line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/>
+            <line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/>
+            <line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/>
+          </svg>
+        </div>
         <div class="robot-state-text">
           <div class="robot-state-label">Current State</div>
           <div class="robot-state-value idle" id="robotStateValue">IDLE</div>
         </div>
       </div>
 
-      <!-- Meta info grid -->
       <div class="robot-meta">
-
         <div class="robot-meta-item">
           <div class="robot-meta-label">Current Order</div>
           <div class="robot-meta-value" id="currentOrderDisplay">—</div>
         </div>
-
         <div class="robot-meta-item">
           <div class="robot-meta-label">Battery</div>
           <div class="robot-meta-value" id="batteryDisplay">—</div>
@@ -87,127 +118,186 @@
             <div class="battery-fill" id="batteryFill" style="width:0%"></div>
           </div>
         </div>
-
       </div>
     </section>
 
     <!-- ╔══════════════════════════════╗
-         ║  2. VISION PIPELINE PANEL    ║
+         ║  2. VISION PIPELINE          ║
          ╚══════════════════════════════╝ -->
     <section class="pipeline-panel" aria-labelledby="pipeline-panel-title">
 
       <div class="panel-header">
-        <h2 class="panel-title" id="pipeline-panel-title">👁 Vision Pipeline</h2>
-        <span class="section-label" style="margin:0" id="pipelineStageLabel">Waiting</span>
+        <h2 class="panel-title" id="pipeline-panel-title">
+          <span class="panel-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </span>
+          Vision Pipeline
+        </h2>
+        <span class="section-label" style="margin:0" id="pipelineStageLabel">Standby</span>
       </div>
 
       <div class="pipeline-stages" role="list" aria-label="Vision pipeline stages">
 
         <div class="pipeline-stage" id="stage-IDLE" role="listitem" data-stage="IDLE">
           <div class="stage-indicator" aria-hidden="true"></div>
-          <span class="stage-name">IDLE — Standby</span>
-          <span class="stage-icon" aria-hidden="true">💤</span>
-          <span class="stage-check" aria-hidden="true">✓</span>
+          <span class="stage-icon-svg" aria-hidden="true">
+            <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="9" cy="9" r="7"/><line x1="9" y1="5" x2="9" y2="9"/><line x1="9" y1="9" x2="12" y2="11"/></svg>
+          </span>
+          <span class="stage-name">Standby</span>
+          <span class="stage-check" aria-hidden="true">
+            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="2,7 6,11 12,3"/></svg>
+          </span>
         </div>
 
         <div class="pipeline-stage" id="stage-NAVIGATING" role="listitem" data-stage="NAVIGATING">
           <div class="stage-indicator" aria-hidden="true"></div>
-          <span class="stage-name">NAVIGATING — Moving to shelf</span>
-          <span class="stage-icon" aria-hidden="true">🧭</span>
-          <span class="stage-check" aria-hidden="true">✓</span>
+          <span class="stage-icon-svg" aria-hidden="true">
+            <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="9,2 16,16 9,13 2,16"/></svg>
+          </span>
+          <span class="stage-name">Navigating to shelf</span>
+          <span class="stage-check" aria-hidden="true">
+            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="2,7 6,11 12,3"/></svg>
+          </span>
         </div>
 
         <div class="pipeline-stage" id="stage-SCANNING QR" role="listitem" data-stage="SCANNING QR">
           <div class="stage-indicator" aria-hidden="true"></div>
-          <span class="stage-name">SCANNING QR — Reading shelf code</span>
-          <span class="stage-icon" aria-hidden="true">📷</span>
-          <span class="stage-check" aria-hidden="true">✓</span>
+          <span class="stage-icon-svg" aria-hidden="true">
+            <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+              <rect x="2" y="2" width="5" height="5" rx="1"/><rect x="11" y="2" width="5" height="5" rx="1"/>
+              <rect x="2" y="11" width="5" height="5" rx="1"/>
+              <line x1="11" y1="11" x2="13" y2="11"/><line x1="16" y1="11" x2="16" y2="13"/>
+              <line x1="11" y1="14" x2="14" y2="14"/><line x1="14" y1="16" x2="16" y2="16"/>
+              <line x1="14" y1="14" x2="14" y2="16"/>
+            </svg>
+          </span>
+          <span class="stage-name">Scanning QR code</span>
+          <span class="stage-check" aria-hidden="true">
+            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="2,7 6,11 12,3"/></svg>
+          </span>
         </div>
 
         <div class="pipeline-stage" id="stage-DETECTING BOX" role="listitem" data-stage="DETECTING BOX">
           <div class="stage-indicator" aria-hidden="true"></div>
-          <span class="stage-name">DETECTING BOX — AI box detection</span>
-          <span class="stage-icon" aria-hidden="true">👁️</span>
-          <span class="stage-check" aria-hidden="true">✓</span>
+          <span class="stage-icon-svg" aria-hidden="true">
+            <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 9s3-6 8-6 8 6 8 6-3 6-8 6-8-6-8-6z"/><circle cx="9" cy="9" r="2.5"/></svg>
+          </span>
+          <span class="stage-name">AI box detection</span>
+          <span class="stage-check" aria-hidden="true">
+            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="2,7 6,11 12,3"/></svg>
+          </span>
         </div>
 
         <div class="pipeline-stage" id="stage-ALIGNING" role="listitem" data-stage="ALIGNING">
           <div class="stage-indicator" aria-hidden="true"></div>
-          <span class="stage-name">ALIGNING — Positioning gripper</span>
-          <span class="stage-icon" aria-hidden="true">🎯</span>
-          <span class="stage-check" aria-hidden="true">✓</span>
+          <span class="stage-icon-svg" aria-hidden="true">
+            <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="9" cy="9" r="7"/><circle cx="9" cy="9" r="3"/><line x1="9" y1="2" x2="9" y2="6"/><line x1="9" y1="12" x2="9" y2="16"/><line x1="2" y1="9" x2="6" y2="9"/><line x1="12" y1="9" x2="16" y2="9"/></svg>
+          </span>
+          <span class="stage-name">Aligning gripper</span>
+          <span class="stage-check" aria-hidden="true">
+            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="2,7 6,11 12,3"/></svg>
+          </span>
         </div>
 
         <div class="pipeline-stage" id="stage-LIFTING" role="listitem" data-stage="LIFTING">
           <div class="stage-indicator" aria-hidden="true"></div>
-          <span class="stage-name">LIFTING — Suction pickup</span>
-          <span class="stage-icon" aria-hidden="true">🦾</span>
-          <span class="stage-check" aria-hidden="true">✓</span>
+          <span class="stage-icon-svg" aria-hidden="true">
+            <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="9" y1="15" x2="9" y2="4"/><polyline points="5,8 9,4 13,8"/><line x1="3" y1="15" x2="15" y2="15"/></svg>
+          </span>
+          <span class="stage-name">Suction pickup</span>
+          <span class="stage-check" aria-hidden="true">
+            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="2,7 6,11 12,3"/></svg>
+          </span>
         </div>
 
         <div class="pipeline-stage" id="stage-DELIVERING" role="listitem" data-stage="DELIVERING">
           <div class="stage-indicator" aria-hidden="true"></div>
-          <span class="stage-name">DELIVERING — En route to drop zone</span>
-          <span class="stage-icon" aria-hidden="true">📦</span>
-          <span class="stage-check" aria-hidden="true">✓</span>
+          <span class="stage-icon-svg" aria-hidden="true">
+            <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h12l3 4v4H2z"/><circle cx="6" cy="14" r="1.5"/><circle cx="13" cy="14" r="1.5"/><line x1="2" y1="8" x2="17" y2="8"/></svg>
+          </span>
+          <span class="stage-name">En route to drop zone</span>
+          <span class="stage-check" aria-hidden="true">
+            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="2,7 6,11 12,3"/></svg>
+          </span>
         </div>
 
       </div>
     </section>
 
     <!-- ╔══════════════════════════════╗
-         ║  3. PLACE ORDER PANEL        ║
+         ║  3. PLACE ORDER              ║
          ╚══════════════════════════════╝ -->
     <section class="order-panel" aria-labelledby="order-panel-title">
 
       <div class="panel-header">
-        <h2 class="panel-title" id="order-panel-title">📋 Place Order</h2>
+        <h2 class="panel-title" id="order-panel-title">
+          <span class="panel-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
+              <rect x="9" y="3" width="6" height="4" rx="1"/>
+              <line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="12" y2="16"/>
+            </svg>
+          </span>
+          Place Order
+        </h2>
       </div>
 
-      <!-- Warning shown when an order is already active -->
       <div class="order-warning" id="orderWarning" role="alert" aria-live="polite">
-        ⚠ An order is currently active. Wait for it to complete before placing a new one.
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true">
+          <path d="M8 1L15 14H1L8 1z"/>
+          <line x1="8" y1="6" x2="8" y2="10"/>
+          <circle cx="8" cy="12.5" r="0.6" fill="currentColor" stroke="none"/>
+        </svg>
+        An order is currently active. Wait for it to complete.
       </div>
 
-      <!-- Success toast -->
       <div class="order-success-toast" id="orderSuccessToast" role="status" aria-live="polite"></div>
 
       <div class="order-form">
         <div class="form-group">
           <label class="form-label" for="shelfInput">Shelf ID</label>
-          <input
-            class="form-input"
-            type="text"
-            id="shelfInput"
-            placeholder="e.g. SHELF_A07"
-            maxlength="20"
-            autocomplete="off"
-            aria-describedby="shelfHint"
-          >
-          <span id="shelfHint" style="font-size:var(--text-xs);color:var(--white-30);margin-top:4px">
-            Format: SHELF_A07 · will be auto-uppercased
+          <input class="form-input" type="text" id="shelfInput"
+                 placeholder="e.g. SHELF_A07" maxlength="20"
+                 autocomplete="off" aria-describedby="shelfHint">
+          <span id="shelfHint" style="font-size:var(--text-xs);color:var(--white-30);margin-top:4px;display:block">
+            Format: SHELF_A07 · auto-uppercased
           </span>
         </div>
 
-        <button
-          class="btn btn-primary order-submit-btn btn-ripple"
-          id="submitOrderBtn"
-          onclick="submitOrder()"
-          aria-label="Submit pick order for entered shelf"
-        >
-          <span aria-hidden="true">🚀</span> Send Order
+        <button class="btn btn-primary order-submit-btn btn-ripple"
+                id="submitOrderBtn" onclick="submitOrder()"
+                aria-label="Submit pick order">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" aria-hidden="true">
+            <line x1="22" y1="2" x2="11" y2="13"/>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+          Send Order
         </button>
       </div>
 
     </section>
 
     <!-- ╔══════════════════════════════╗
-         ║  4. LIVE ORDER QUEUE         ║
+         ║  4. LIVE QUEUE               ║
          ╚══════════════════════════════╝ -->
     <section class="queue-panel" aria-labelledby="queue-panel-title">
 
       <div class="panel-header">
-        <h2 class="panel-title" id="queue-panel-title">⏳ Live Queue</h2>
+        <h2 class="panel-title" id="queue-panel-title">
+          <span class="panel-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
+              <line x1="8" y1="18" x2="21" y2="18"/>
+              <circle cx="3.5" cy="6"  r="0.8" fill="currentColor"/>
+              <circle cx="3.5" cy="12" r="0.8" fill="currentColor"/>
+              <circle cx="3.5" cy="18" r="0.8" fill="currentColor"/>
+            </svg>
+          </span>
+          Live Queue
+        </h2>
         <span class="badge badge-idle" id="queueCount" aria-live="polite">0 orders</span>
       </div>
 
@@ -223,7 +313,15 @@
     <section class="history-panel" aria-labelledby="history-panel-title">
 
       <div class="panel-header">
-        <h2 class="panel-title" id="history-panel-title">🗂 Order History</h2>
+        <h2 class="panel-title" id="history-panel-title">
+          <span class="panel-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="12 6 12 12 16 14"/>
+            </svg>
+          </span>
+          Order History
+        </h2>
         <span class="section-label" style="margin:0" id="historyCount">0 completed</span>
       </div>
 
@@ -248,8 +346,8 @@
 
     </section>
 
-  </main><!-- /.dash-body -->
-</div><!-- /.dashboard-layout -->
+  </main>
+</div>
 
 <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
