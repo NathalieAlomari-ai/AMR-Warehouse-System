@@ -50,7 +50,7 @@ def generate_launch_description():
             'odom_frame':        'odom',
             'base_frame':        'base_footprint',
             'ticks_per_rev':     2700,
-            'publish_tf':        False,   # EKF node owns odom → base_footprint
+            'publish_tf':        True,    # serial_bridge owns odom → base_footprint TF
         }],
     )
 
@@ -70,7 +70,8 @@ def generate_launch_description():
         executable='ekf_node',
         name='ekf_node',
         output='screen',
-        parameters=[os.path.join(amr_navigation_share, 'config', 'ekf.yaml')],
+        parameters=[os.path.join(amr_navigation_share, 'config', 'ekf.yaml'),
+                    {'publish_tf': False}],   # serial_bridge owns TF; EKF publishes /odom only
         remappings=[
             # ekf_node's default output topic is odometry/filtered.
             # Remap to /odom so SLAM toolbox and Nav2 receive the fused estimate
