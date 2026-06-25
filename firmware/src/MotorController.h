@@ -3,51 +3,63 @@
 #include <Encoder.h>
 #include "Config.h"
 #include "MotorDriver.h"
+#include "PIDController.h"
 
-// MotorController — one wheel: BTS7960 driver + quadrature encoder, open-loop.
+// MotorController — one wheel: BTS7960 driver + quadrature encoder, closed-loop.
 //
-// setTargetRPM() maps the requested RPM linearly to a PWM duty cycle [-255, 255]
-// using MAX_RPM as the full-scale reference. No feedback is applied.
-// RPM reported by getActualRPM() is for telemetry only (averaged over 500 ms).
+// setTargetRPM() stores the desired speed. update() runs the PID every 20 ms,
+// reads the encoder, and adjusts PWM so actual RPM tracks the target.
+// This compensates for per-motor friction and back-EMF differences that cause
+// open-loop robots to veer.
 
 class MotorController {
 public:
-    static constexpr int RPM_WINDOW_N = 25;  // 25 × 20 ms = 500 ms averaging window
+    static constexpr int TELEM_N = 25;  // 25 × 20 ms = 500 ms telemetry window
 
     MotorController(MotorDriver& driver, Encoder& encoder, int pulsesPerRev)
         : _driver(driver), _enc(encoder), _ppr(pulsesPerRev),
-          _lastCount(0), _actualRPM(0.f),
-          _accumDelta(0), _accumN(0) {}
+          _lastCount(0), _targetRPM(0.f), _actualRPM(0.f), _telemRPM(0.f),
+          _accumDelta(0), _accumN(0),
+          _pid(VEL_KP, VEL_KI, VEL_KD, -255.f, 255.f, VEL_ICLAMP) {}
 
     void begin() {
         _driver.begin();
         _lastCount = _enc.read();
     }
 
-    // Call at 50 Hz to keep the telemetry RPM estimate fresh. dt in seconds.
+    // Call at 50 Hz (dt = 0.02 s) — reads encoder, runs PID, drives motor.
     void update(float dt) {
         const long count = _enc.read();
         const long delta = count - _lastCount;
         _lastCount = count;
 
+        // Per-tick RPM for closed-loop control
+        _actualRPM = ((float)delta / (float)_ppr) * (60.0f / dt);
+
+        // 500 ms rolling average for telemetry only
         _accumDelta += delta;
-        _accumN++;
-        if (_accumN >= RPM_WINDOW_N) {
-            const float windowSec = dt * (float)RPM_WINDOW_N;
-            _actualRPM = ((float)_accumDelta / (float)_ppr) * (60.0f / windowSec);
+        if (++_accumN >= TELEM_N) {
+            _telemRPM   = ((float)_accumDelta / (float)_ppr) * (60.0f / (dt * TELEM_N));
             _accumDelta = 0;
             _accumN     = 0;
         }
-    }
 
-    // Open-loop: maps rpm linearly to duty cycle and drives the motor immediately.
-    void setTargetRPM(float rpm) {
-        rpm = constrain(rpm, -MAX_RPM, MAX_RPM);
-        const int duty = (int)(rpm / MAX_RPM * 255.0f);
+        // Closed-loop: PID adjusts PWM based on actual vs target RPM
+        const int duty = (int)_pid.compute(_targetRPM, _actualRPM, dt);
         _driver.setSpeed(duty);
     }
 
-    float getActualRPM()    const { return _actualRPM; }
+    // Store target; PID runs in update(). Resets integrator when stopping
+    // to prevent integral windup carrying over to the next move.
+    void setTargetRPM(float rpm) {
+        _targetRPM = constrain(rpm, -MAX_RPM, MAX_RPM);
+        if (fabsf(_targetRPM) < 0.1f) {
+            _pid.reset();
+            _driver.setSpeed(0);
+        }
+    }
+
+    float getActualRPM()    const { return _telemRPM; }
     long  getEncoderCount() const { return _lastCount; }
 
     void resetEncoder() {
@@ -55,14 +67,18 @@ public:
         _lastCount  = 0;
         _accumDelta = 0;
         _accumN     = 0;
+        _pid.reset();
     }
 
 private:
-    MotorDriver& _driver;
-    Encoder&     _enc;
-    const int    _ppr;
-    long         _lastCount;
-    float        _actualRPM;
-    long         _accumDelta;
-    int          _accumN;
+    MotorDriver&  _driver;
+    Encoder&      _enc;
+    const int     _ppr;
+    long          _lastCount;
+    float         _targetRPM;
+    float         _actualRPM;
+    float         _telemRPM;
+    long          _accumDelta;
+    int           _accumN;
+    PIDController _pid;
 };
