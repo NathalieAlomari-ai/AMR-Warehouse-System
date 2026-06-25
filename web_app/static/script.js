@@ -827,16 +827,15 @@ function escapeHtml(str) {
 }
 
 /* ════════════════════════════════════════════════════════════════════
-   MENU VERTICAL — SCROLL SPY + SLIDING PILL (berlix style)
-   Moves the .mv-pill indicator to whichever section is in view.
+   MENU VERTICAL — SCROLL SPY  (berlix exact translation)
+   Tracks which section is active and applies .active to that nav item.
+   Active item: arrow visible at x:0 + label at x:0 orange (CSS handles it).
    ════════════════════════════════════════════════════════════════════ */
 ;(function initMenuVertical() {
   const nav = document.getElementById('menuVertical');
   if (!nav) return;
 
-  const track   = nav.querySelector('.mv-track');
-  const pill    = document.getElementById('mvPill');
-  const items   = nav.querySelectorAll('.mv-item[href^="#"]');
+  const items    = nav.querySelectorAll('.mv-item[href^="#"]');
   const sections = [];
 
   items.forEach(item => {
@@ -845,253 +844,80 @@ function escapeHtml(str) {
     if (sec) sections.push({ item, sec });
   });
 
-  function movePill(activeItem) {
-    if (!pill || !track || !activeItem) return;
-    const trackRect = track.getBoundingClientRect();
-    const itemRect  = activeItem.getBoundingClientRect();
-    /* Offset relative to the track */
-    pill.style.top    = (itemRect.top - trackRect.top) + 'px';
-    pill.style.height = itemRect.height + 'px';
-  }
-
   function updateActive() {
     const trigger = window.innerHeight * 0.48;
     let active = sections[0];
     sections.forEach(e => {
       if (e.sec.getBoundingClientRect().top <= trigger) active = e;
     });
-
     items.forEach(i => i.classList.remove('active'));
-    if (active) {
-      active.item.classList.add('active');
-      movePill(active.item);
-    }
+    if (active) active.item.classList.add('active');
   }
 
   window.addEventListener('scroll', updateActive, { passive: true });
-  /* Wait one frame for layout to settle before first pill position */
-  requestAnimationFrame(() => requestAnimationFrame(updateActive));
+  requestAnimationFrame(updateActive);
 })();
 
 /* ════════════════════════════════════════════════════════════════════
-   STEEL, CODE & VISION — 3D ORBIT GALLERY  (shadway / Three.js)
-   Faithful recreation of shadway's ParticleSphere + OrbitControls.
-   Camera: position [-10, 1.5, 10]  fov 50  (matches component props)
+   VERTICAL IMAGE STACK  (jatin-yadav05/vertical-image-stack)
+   Cards stack up inside a sticky frame as user scrolls.
+   Each card slides in, previous cards scale down and fade.
    ════════════════════════════════════════════════════════════════════ */
-;(function initOrbitGallery() {
-  const container = document.getElementById('orbitGallery');
-  if (!container || typeof THREE === 'undefined') return;
+;(function initVerticalStack() {
+  const wrapper = document.getElementById('verticalStack');
+  if (!wrapper) return;
 
-  /* Hide spinner once Three.js is ready */
-  const loader = document.getElementById('orbitLoading');
+  const cards   = Array.from(wrapper.querySelectorAll('.vis-card'));
+  const counter = document.getElementById('visCurrentNum');
+  if (!cards.length) return;
 
-  const W = container.clientWidth;
-  const H = container.clientHeight;
+  const CARD_COUNT = cards.length;
 
-  /* ── Scene ─────────────────────────────────────────────────────── */
-  const scene    = new THREE.Scene();
-  const camera   = new THREE.PerspectiveCamera(50, W / H, 0.1, 1000);
-  camera.position.set(-10, 1.5, 10);   /* exact props from component */
-  camera.lookAt(0, 0, 0);
-
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-  renderer.setSize(W, H);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.setClearColor(0x000000, 0);
-  container.appendChild(renderer.domElement);
-  if (loader) loader.style.display = 'none';
-
-  /* ── Lights ────────────────────────────────────────────────────── */
-  scene.add(new THREE.AmbientLight(0xffffff, 0.5));       /* ambientLight intensity 0.5 */
-  const pt = new THREE.PointLight(0xffffff, 1.5);
-  pt.position.set(10, 10, 10);                            /* pointLight position [10,10,10] */
-  scene.add(pt);
-  const orangePt = new THREE.PointLight(0xff6b00, 0.7);
-  orangePt.position.set(-6, 0, 6);
-  scene.add(orangePt);
-
-  /* ── ParticleSphere ────────────────────────────────────────────── */
-  /* Fibonacci sphere — uniform distribution matching ParticleSphere */
-  const N       = 3000;
-  const posArr  = new Float32Array(N * 3);
-  const colArr  = new Float32Array(N * 3);
-  const R       = 4.5;
-  const golden  = Math.PI * (3 - Math.sqrt(5));
-
-  for (let i = 0; i < N; i++) {
-    const y    = 1 - (i / (N - 1)) * 2;
-    const rAt  = Math.sqrt(Math.max(0, 1 - y * y));
-    const th   = golden * i;
-    posArr[i*3]   = R * Math.cos(th) * rAt;
-    posArr[i*3+1] = R * y;
-    posArr[i*3+2] = R * Math.sin(th) * rAt;
-    /* Orange + white mix */
-    if (Math.random() > 0.72) {
-      colArr[i*3] = 1; colArr[i*3+1] = 0.42; colArr[i*3+2] = 0;
-    } else {
-      const v = 0.8 + Math.random() * 0.2;
-      colArr[i*3] = v; colArr[i*3+1] = v; colArr[i*3+2] = v;
-    }
+  function getProgress() {
+    const rect     = wrapper.getBoundingClientRect();
+    const scrolled = -rect.top;
+    const total    = wrapper.offsetHeight - window.innerHeight;
+    return Math.max(0, Math.min(1, scrolled / total));
   }
 
-  const sGeo = new THREE.BufferGeometry();
-  sGeo.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
-  sGeo.setAttribute('color',    new THREE.BufferAttribute(colArr, 3));
+  function update() {
+    const progress   = getProgress();
+    const slot       = progress * CARD_COUNT;
+    const activeIndex = Math.min(CARD_COUNT - 1, Math.floor(slot));
 
-  const sMat = new THREE.PointsMaterial({
-    size: 0.055,
-    vertexColors: true,
-    transparent: true,
-    opacity: 0.88,
-    sizeAttenuation: true,
-  });
+    if (counter) counter.textContent = String(activeIndex + 1);
 
-  const particleSphere = new THREE.Points(sGeo, sMat);
-  scene.add(particleSphere);
-
-  /* ── Photo planes in orbit paths ──────────────────────────────── */
-  const PHOTO_SRCS = [
-    '/static/images/work-01.jpg', '/static/images/work-02.jpg',
-    '/static/images/work-03.jpg', '/static/images/work-04.jpg',
-    '/static/images/work-05.jpg', '/static/images/work-06.jpg',
-    '/static/images/work-07.jpg', '/static/images/work-08.jpg',
-    '/static/images/work-09.jpg', '/static/images/work-10.jpg',
-  ];
-
-  const orbitGroup  = new THREE.Group();
-  scene.add(orbitGroup);
-  const texLoader   = new THREE.TextureLoader();
-  const ORBIT_R     = 7.8;
-  const fallback    = [0xff6b00, 0xff9a40, 0x1a1a1a];
-
-  PHOTO_SRCS.forEach((src, i) => {
-    const angle = (i / PHOTO_SRCS.length) * Math.PI * 2;
-    /* Distribute photos across 3 orbit rings at different inclinations */
-    const ring  = i % 3;
-    const tilt  = [-0.4, 0.1, 0.5][ring];
-    const x     = Math.cos(angle) * ORBIT_R;
-    const y     = Math.sin(angle * 0.5) * 1.8 + tilt * 2;
-    const z     = Math.sin(angle) * ORBIT_R;
-
-    /* Frame (slightly larger, orange border) */
-    const frameGeo = new THREE.PlaneGeometry(2.7, 2.0);
-    const frameMat = new THREE.MeshBasicMaterial({
-      color: 0xff6b00, transparent: true, opacity: 0.55, side: THREE.DoubleSide,
+    cards.forEach((card, i) => {
+      if (i > activeIndex) {
+        card.style.transform = 'translateY(100%) scale(1)';
+        card.style.opacity   = '0';
+        card.style.zIndex    = String(i);
+      } else if (i === activeIndex) {
+        card.style.transform = 'translateY(0%) scale(1)';
+        card.style.opacity   = '1';
+        card.style.zIndex    = String(CARD_COUNT + i);
+      } else {
+        const depth  = activeIndex - i;
+        const scale  = Math.max(0.82, 1 - depth * 0.05);
+        const pushUp = depth * 24;
+        card.style.transform = `translateY(-${pushUp}px) scale(${scale})`;
+        card.style.opacity   = String(Math.max(0, 1 - depth * 0.22));
+        card.style.zIndex    = String(CARD_COUNT - depth);
+      }
     });
-    const frame = new THREE.Mesh(frameGeo, frameMat);
-    frame.position.set(x, y, z);
-    frame.lookAt(0, 0, 0);
-    orbitGroup.add(frame);
-
-    /* Photo plane */
-    const planeGeo = new THREE.PlaneGeometry(2.5, 1.85);
-    const planeMat = new THREE.MeshStandardMaterial({
-      color: fallback[i % 3], transparent: true, opacity: 0.9,
-      side: THREE.DoubleSide, roughness: 0.4, metalness: 0.1,
-    });
-    const plane = new THREE.Mesh(planeGeo, planeMat);
-    plane.position.set(x, y, z);
-    plane.lookAt(0, 0, 0);
-    orbitGroup.add(plane);
-
-    /* Load actual texture asynchronously */
-    texLoader.load(src, tex => {
-      tex.colorSpace = THREE.SRGBColorSpace;
-      plane.material = new THREE.MeshStandardMaterial({
-        map: tex, transparent: true, opacity: 0.92,
-        side: THREE.DoubleSide, roughness: 0.4, metalness: 0.1,
-      });
-    });
-  });
-
-  /* ── OrbitControls (manual — equivalent to drei OrbitControls) ── */
-  let isDragging = false;
-  let dragStart  = { x: 0, y: 0 };
-  let rotY = 0.3,  rotX = 0.1;   /* current spherical angles */
-  let velX = 0,    velY = 0;
-  const DRAG_SPEED = 0.005;
-  const DAMP       = 0.92;
-  const AUTO_ROT   = 0.004;
-
-  /* enablePan=true / enableZoom=true / enableRotate=true */
-  let zoomDist = camera.position.length();
-
-  renderer.domElement.addEventListener('mousedown', e => {
-    isDragging = true;
-    dragStart  = { x: e.clientX, y: e.clientY };
-  });
-  window.addEventListener('mouseup',  () => { isDragging = false; });
-  window.addEventListener('mousemove', e => {
-    if (!isDragging) return;
-    velX = (e.clientX - dragStart.x) * DRAG_SPEED;
-    velY = (e.clientY - dragStart.y) * DRAG_SPEED;
-    rotY    += velX;
-    rotX    += velY;
-    rotX     = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, rotX));
-    dragStart = { x: e.clientX, y: e.clientY };
-  });
-
-  /* Scroll to zoom */
-  container.addEventListener('wheel', e => {
-    e.preventDefault();
-    zoomDist = Math.max(8, Math.min(22, zoomDist + e.deltaY * 0.02));
-  }, { passive: false });
-
-  /* Touch */
-  let touchPrev = null;
-  renderer.domElement.addEventListener('touchstart', e => {
-    touchPrev = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-  }, { passive: true });
-  renderer.domElement.addEventListener('touchmove', e => {
-    if (!touchPrev) return;
-    velX = (e.touches[0].clientX - touchPrev.x) * DRAG_SPEED * 0.7;
-    velY = (e.touches[0].clientY - touchPrev.y) * DRAG_SPEED * 0.7;
-    rotY    += velX;
-    rotX    += velY;
-    rotX     = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, rotX));
-    touchPrev = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-  }, { passive: true });
-  renderer.domElement.addEventListener('touchend', () => { touchPrev = null; });
-
-  /* ── Resize ────────────────────────────────────────────────────── */
-  window.addEventListener('resize', () => {
-    const w = container.clientWidth;
-    const h = container.clientHeight;
-    camera.aspect = w / h;
-    camera.updateProjectionMatrix();
-    renderer.setSize(w, h);
-  }, { passive: true });
-
-  /* ── Animation loop ────────────────────────────────────────────── */
-  let clock = 0;
-
-  function animate() {
-    requestAnimationFrame(animate);
-    clock += 0.01;
-
-    /* Auto-rotate when not dragging */
-    if (!isDragging) {
-      rotY += AUTO_ROT;
-      velX *= DAMP;
-      velY *= DAMP;
-    }
-
-    /* Smooth zoom */
-    const camLen = camera.position.length();
-    const zoomD  = (zoomDist - camLen) * 0.06;
-    camera.position.multiplyScalar(1 + zoomD / camLen);
-
-    /* Apply spherical rotation to orbit group + particle sphere */
-    orbitGroup.rotation.y      = rotY;
-    orbitGroup.rotation.x      = rotX;
-    particleSphere.rotation.y  = rotY * 0.4;
-    particleSphere.rotation.x  = rotX * 0.4;
-
-    /* Gentle pulse on particle opacity */
-    particleSphere.material.opacity = 0.78 + Math.sin(clock) * 0.1;
-
-    renderer.render(scene, camera);
   }
 
-  animate();
+  /* Snap initial state without transitions, then enable them */
+  cards.forEach(c => { c.style.transition = 'none'; });
+  update();
+  requestAnimationFrame(() => {
+    cards.forEach(c => {
+      c.style.transition = 'transform 0.45s cubic-bezier(0.22,1,0.36,1), opacity 0.45s ease';
+    });
+  });
+
+  window.addEventListener('scroll', update, { passive: true });
+  window.addEventListener('resize', update, { passive: true });
 })();
+
+/* end of landing page scripts */

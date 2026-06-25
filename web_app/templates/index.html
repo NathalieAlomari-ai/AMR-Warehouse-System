@@ -4,37 +4,69 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Navixa — Navigate The Future</title>
-  <meta name="description" content="Navixa is an autonomous mobile robot designed for overnight medicine box delivery in warehouse environments.">
+  <meta name="description" content="Navixa — autonomous warehouse robot by UTB 2026 capstone team.">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 
-  <!-- Galaxy canvas — full viewport, interactive star field -->
   <canvas id="galaxyCanvas" aria-hidden="true"></canvas>
 
-  <!-- ══════════════════════════════════════════════════════════════
-       MENU VERTICAL (berlix style)
-       Fixed right side · text labels · sliding pill indicator
-       ══════════════════════════════════════════════════════════════ -->
+  <!-- ═══════════════════════════════════════════════════════════
+       MENU VERTICAL (berlix) — SMALLER size
+       Arrow + label, slide-in on hover, scroll spy active state
+       ═══════════════════════════════════════════════════════════ -->
   <nav class="menu-vertical" id="menuVertical" aria-label="Page navigation">
-    <div class="mv-track">
-      <div class="mv-pill" id="mvPill" aria-hidden="true"></div>
-      <a class="mv-item active" href="#hero">Home</a>
-      <a class="mv-item" href="#how">How It Works</a>
-      <a class="mv-item" href="#tech">Technology</a>
-      <a class="mv-item" href="#build">Steel, Code &amp; Vision</a>
-      <a class="mv-item" href="#team">The Team</a>
-      <a class="mv-item mv-cta" href="{{ url_for('dashboard') }}">Dashboard →</a>
-    </div>
+
+    <a class="mv-item active" href="#hero">
+      <div class="mv-arrow-clip" aria-hidden="true"><div class="mv-arrow">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+      </div></div>
+      <span class="mv-label">Home</span>
+    </a>
+
+    <a class="mv-item" href="#how">
+      <div class="mv-arrow-clip" aria-hidden="true"><div class="mv-arrow">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+      </div></div>
+      <span class="mv-label">How It Works</span>
+    </a>
+
+    <a class="mv-item" href="#tech">
+      <div class="mv-arrow-clip" aria-hidden="true"><div class="mv-arrow">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+      </div></div>
+      <span class="mv-label">Technology</span>
+    </a>
+
+    <a class="mv-item" href="#build">
+      <div class="mv-arrow-clip" aria-hidden="true"><div class="mv-arrow">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+      </div></div>
+      <span class="mv-label">Build</span>
+    </a>
+
+    <a class="mv-item" href="#team">
+      <div class="mv-arrow-clip" aria-hidden="true"><div class="mv-arrow">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+      </div></div>
+      <span class="mv-label">Team</span>
+    </a>
+
+    <a class="mv-item mv-cta" href="{{ url_for('dashboard') }}">
+      <div class="mv-arrow-clip" aria-hidden="true"><div class="mv-arrow">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+      </div></div>
+      <span class="mv-label">Dashboard</span>
+    </a>
+
   </nav>
 
-  <!-- ── Hero ─────────────────────────────────────────────────────── -->
+  <!-- ── Hero ──────────────────────────────────────────────────── -->
   <section class="hero" id="hero" aria-labelledby="hero-title">
     <div class="container hero-container">
 
-      <!-- Navixa Logo -->
       <div class="hero-logo-wrap" aria-hidden="true">
-        <svg class="hero-logo-svg" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg class="hero-logo-svg" viewBox="0 0 200 200" fill="none">
           <rect x="8" y="8" width="184" height="184" rx="28" stroke="#FF6B00" stroke-width="3" fill="rgba(10,10,10,0.6)"/>
           <line x1="52" y1="44" x2="52"  y2="156" stroke="white" stroke-width="22" stroke-linecap="round"/>
           <line x1="148" y1="44" x2="148" y2="156" stroke="white" stroke-width="22" stroke-linecap="round"/>
@@ -48,52 +80,26 @@
         </svg>
       </div>
 
-      <p class="hero-eyebrow">NAVIXA · UTB Capstone 2026</p>
-
-      <h1 class="hero-title" id="hero-title">
-        Navigate<br>
-        <span class="hero-title-accent">The Future.</span>
-      </h1>
-
-      <p class="hero-subtitle">
-        An autonomous mobile robot that picks and delivers medicine boxes
-        overnight — powered by LiDAR, AI Vision, and ROS2.
-      </p>
+      <p class="hero-eyebrow">NAVIXA</p>
+      <h1 class="hero-title" id="hero-title">The Future of<br>Warehouse Delivery<br><span class="hero-title-accent">Is Autonomous</span></h1>
+      <p class="hero-subtitle">Navixa navigates your warehouse overnight — picking and delivering medicine boxes with precision.</p>
 
       <div class="hero-actions">
-        <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-ripple">
-          <span aria-hidden="true">⚡</span> Enter Dashboard
-        </a>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-ripple"><span aria-hidden="true">⚡</span> Enter Dashboard</a>
         <a href="#how" class="btn btn-outline">See How It Works</a>
       </div>
 
       <div class="hero-stats">
-        <div class="hero-stat">
-          <div class="hero-stat-number" data-count="7">0</div>
-          <div class="hero-stat-label">Autonomous Stages</div>
-        </div>
-        <div class="hero-stat">
-          <div class="hero-stat-number" data-count="360">0</div>
-          <div class="hero-stat-label">° LiDAR Coverage</div>
-        </div>
-        <div class="hero-stat">
-          <div class="hero-stat-number" data-count="100">0</div>
-          <div class="hero-stat-label">% Overnight Operation</div>
-        </div>
-        <div class="hero-stat">
-          <div class="hero-stat-number" data-count="4">0</div>
-          <div class="hero-stat-label">Subsystems Integrated</div>
-        </div>
+        <div class="hero-stat"><div class="hero-stat-number" data-count="7">0</div><div class="hero-stat-label">Autonomous Stages</div></div>
+        <div class="hero-stat"><div class="hero-stat-number" data-count="360">0</div><div class="hero-stat-label">° LiDAR Coverage</div></div>
+        <div class="hero-stat"><div class="hero-stat-number" data-count="100">0</div><div class="hero-stat-label">% Overnight Ops</div></div>
+        <div class="hero-stat"><div class="hero-stat-number" data-count="4">0</div><div class="hero-stat-label">Subsystems</div></div>
       </div>
     </div>
-
-    <div class="scroll-hint" aria-hidden="true">
-      <div class="scroll-hint-line"></div>
-      <span>Scroll</span>
-    </div>
+    <div class="scroll-hint" aria-hidden="true"><div class="scroll-hint-line"></div><span>Scroll</span></div>
   </section>
 
-  <!-- ── How It Works ──────────────────────────────────────────────── -->
+  <!-- ── How It Works ─────────────────────────────────────────── -->
   <section class="how-section" id="how" aria-labelledby="how-title">
     <div class="container">
       <div class="section-header">
@@ -103,68 +109,227 @@
       </div>
       <div class="steps-grid">
         <div class="step-card reveal">
-          <div class="step-number"><span class="step-icon">📋</span></div>
+          <div class="step-number"><svg class="step-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="12" y2="16"/></svg></div>
           <h3 class="step-title">Place Order</h3>
-          <p class="step-desc">Operator enters a shelf ID in the dashboard. The command is instantly sent to the robot via MQTT over the local network.</p>
+          <p class="step-desc">Operator enters a shelf ID in the dashboard. Command sent instantly to the robot via MQTT over the local network.</p>
         </div>
         <div class="step-card reveal">
-          <div class="step-number"><span class="step-icon">🧭</span></div>
+          <div class="step-number"><svg class="step-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg></div>
           <h3 class="step-title">Robot Navigates</h3>
-          <p class="step-desc">Navixa builds a real-time map using LiDAR SLAM, navigates to the shelf, and identifies the medicine box with AI vision.</p>
+          <p class="step-desc">Navixa builds a real-time map using LiDAR SLAM, navigates to the shelf, identifies the box with AI vision.</p>
         </div>
         <div class="step-card reveal">
-          <div class="step-number"><span class="step-icon">📦</span></div>
+          <div class="step-number"><svg class="step-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
           <h3 class="step-title">Box Delivered</h3>
-          <p class="step-desc">The suction-based lifting system picks the box and delivers it to the drop zone. Order marked complete in real time.</p>
+          <p class="step-desc">Suction-based lifting picks the box and delivers it to the drop zone. Order marked complete in real time on the dashboard.</p>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- ── Technology ───────────────────────────────────────────────── -->
+  <!-- ── Technology — EXPANDED with real tech ─────────────────── -->
   <section class="tech-section" id="tech" aria-labelledby="tech-title">
     <div class="container">
       <div class="section-header">
         <span class="section-label">Technology Stack</span>
-        <h2 class="section-title" id="tech-title">Built on Cutting-Edge Hardware</h2>
-        <p class="section-subtitle">Four integrated subsystems working as one</p>
+        <h2 class="section-title" id="tech-title">Built on Real Hardware</h2>
+        <p class="section-subtitle">Ten integrated technologies across four subsystems</p>
       </div>
-      <div class="tech-grid">
-        <div class="tech-card reveal"><span class="tech-icon">📡</span><h3 class="tech-name">LiDAR SLAM</h3><p class="tech-desc">Real-time 360° mapping and simultaneous localization for precise autonomous navigation</p></div>
-        <div class="tech-card reveal"><span class="tech-icon">👁️</span><h3 class="tech-name">AI Vision</h3><p class="tech-desc">Astra Pro depth camera with computer vision for QR scanning and medicine box detection</p></div>
-        <div class="tech-card reveal"><span class="tech-icon">🔧</span><h3 class="tech-name">ROS2</h3><p class="tech-desc">Robot Operating System 2 for inter-node communication and navigation stack integration</p></div>
-        <div class="tech-card reveal"><span class="tech-icon">🧠</span><h3 class="tech-name">Jetson Orin Nano</h3><p class="tech-desc">NVIDIA edge AI platform running the complete autonomy stack at 40 TOPS performance</p></div>
+
+      <div class="tech-grid-expanded">
+
+        <!-- Hardware -->
+        <div class="tech-card-new reveal">
+          <div class="tech-img-wrap">
+            <img src="{{ url_for('static', filename='images/tech/lidar.png') }}" alt="RPLiDAR" class="tech-img" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+            <div class="tech-img-fallback" style="display:none">
+              <svg viewBox="0 0 64 64" fill="none"><circle cx="32" cy="32" r="6" stroke="#FF6B00" stroke-width="2"/><circle cx="32" cy="32" r="14" stroke="#FF6B00" stroke-width="1" stroke-dasharray="4 3"/><circle cx="32" cy="32" r="22" stroke="#FF6B00" stroke-width="1" stroke-dasharray="2 4" opacity=".5"/><line x1="32" y1="32" x2="55" y2="20" stroke="#FF6B00" stroke-width="1.5" opacity=".8"/><line x1="32" y1="32" x2="9" y2="44" stroke="#FF6B00" stroke-width="1" opacity=".4"/></svg>
+            </div>
+          </div>
+          <h3 class="tech-name-new">RPLiDAR A2</h3>
+          <p class="tech-badge">Hardware</p>
+          <p class="tech-desc-new">360° laser scanning, 12 m range, 8000 samples/sec for real-time SLAM mapping</p>
+        </div>
+
+        <div class="tech-card-new reveal">
+          <div class="tech-img-wrap">
+            <img src="{{ url_for('static', filename='images/tech/camera.png') }}" alt="Astra Pro" class="tech-img" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+            <div class="tech-img-fallback" style="display:none">
+              <svg viewBox="0 0 64 64" fill="none"><rect x="8" y="16" width="48" height="36" rx="4" stroke="#FF6B00" stroke-width="2"/><circle cx="32" cy="34" r="10" stroke="#FF6B00" stroke-width="2"/><circle cx="32" cy="34" r="5" stroke="#FF6B00" stroke-width="1.5"/><rect x="20" y="8" width="10" height="8" rx="2" stroke="#FF6B00" stroke-width="1.5"/><circle cx="48" cy="22" r="2" fill="#FF6B00"/></svg>
+            </div>
+          </div>
+          <h3 class="tech-name-new">Astra Pro Camera</h3>
+          <p class="tech-badge">Hardware</p>
+          <p class="tech-desc-new">RGB-D depth camera, 8 MP, used for QR code scanning and 3D box detection</p>
+        </div>
+
+        <div class="tech-card-new reveal">
+          <div class="tech-img-wrap">
+            <img src="{{ url_for('static', filename='images/tech/jetson.png') }}" alt="Jetson Orin Nano" class="tech-img" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+            <div class="tech-img-fallback" style="display:none">
+              <svg viewBox="0 0 64 64" fill="none"><rect x="12" y="12" width="40" height="40" rx="4" stroke="#FF6B00" stroke-width="2"/><rect x="20" y="20" width="24" height="24" rx="2" stroke="#FF6B00" stroke-width="1.5"/><line x1="8" y1="20" x2="12" y2="20" stroke="#FF6B00" stroke-width="2"/><line x1="8" y1="28" x2="12" y2="28" stroke="#FF6B00" stroke-width="2"/><line x1="8" y1="36" x2="12" y2="36" stroke="#FF6B00" stroke-width="2"/><line x1="8" y1="44" x2="12" y2="44" stroke="#FF6B00" stroke-width="2"/><line x1="56" y1="20" x2="52" y2="20" stroke="#FF6B00" stroke-width="2"/><line x1="56" y1="28" x2="52" y2="28" stroke="#FF6B00" stroke-width="2"/><line x1="56" y1="36" x2="52" y2="36" stroke="#FF6B00" stroke-width="2"/><line x1="56" y1="44" x2="52" y2="44" stroke="#FF6B00" stroke-width="2"/></svg>
+            </div>
+          </div>
+          <h3 class="tech-name-new">Jetson Orin Nano</h3>
+          <p class="tech-badge">Hardware</p>
+          <p class="tech-desc-new">NVIDIA edge AI platform, 8 GB RAM, 40 TOPS — runs the full autonomy stack</p>
+        </div>
+
+        <div class="tech-card-new reveal">
+          <div class="tech-img-wrap">
+            <img src="{{ url_for('static', filename='images/tech/stm32.png') }}" alt="STM32" class="tech-img" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+            <div class="tech-img-fallback" style="display:none">
+              <svg viewBox="0 0 64 64" fill="none"><rect x="16" y="16" width="32" height="32" rx="3" stroke="#FF6B00" stroke-width="2"/><text x="32" y="36" text-anchor="middle" fill="#FF6B00" font-size="9" font-family="monospace">STM32</text><line x1="12" y1="24" x2="16" y2="24" stroke="#FF6B00" stroke-width="2"/><line x1="12" y1="32" x2="16" y2="32" stroke="#FF6B00" stroke-width="2"/><line x1="12" y1="40" x2="16" y2="40" stroke="#FF6B00" stroke-width="2"/><line x1="52" y1="24" x2="48" y2="24" stroke="#FF6B00" stroke-width="2"/><line x1="52" y1="32" x2="48" y2="32" stroke="#FF6B00" stroke-width="2"/><line x1="52" y1="40" x2="48" y2="40" stroke="#FF6B00" stroke-width="2"/></svg>
+            </div>
+          </div>
+          <h3 class="tech-name-new">STM32 MCU</h3>
+          <p class="tech-badge">Hardware</p>
+          <p class="tech-desc-new">Motor controller &amp; actuation firmware for the drive train and suction mechanism</p>
+        </div>
+
+        <!-- Software -->
+        <div class="tech-card-new reveal">
+          <div class="tech-img-wrap">
+            <img src="{{ url_for('static', filename='images/tech/ros2.png') }}" alt="ROS2" class="tech-img" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+            <div class="tech-img-fallback" style="display:none">
+              <svg viewBox="0 0 64 64" fill="none"><circle cx="32" cy="32" r="6" fill="#FF6B00"/><circle cx="12" cy="20" r="5" stroke="#FF6B00" stroke-width="2"/><circle cx="52" cy="20" r="5" stroke="#FF6B00" stroke-width="2"/><circle cx="12" cy="44" r="5" stroke="#FF6B00" stroke-width="2"/><circle cx="52" cy="44" r="5" stroke="#FF6B00" stroke-width="2"/><line x1="17" y1="20" x2="26" y2="26" stroke="#FF6B00" stroke-width="1.5"/><line x1="47" y1="20" x2="38" y2="26" stroke="#FF6B00" stroke-width="1.5"/><line x1="17" y1="44" x2="26" y2="38" stroke="#FF6B00" stroke-width="1.5"/><line x1="47" y1="44" x2="38" y2="38" stroke="#FF6B00" stroke-width="1.5"/></svg>
+            </div>
+          </div>
+          <h3 class="tech-name-new">ROS2 Humble</h3>
+          <p class="tech-badge">Software</p>
+          <p class="tech-desc-new">Distributed node architecture for navigation, perception, and actuation pipelines</p>
+        </div>
+
+        <div class="tech-card-new reveal">
+          <div class="tech-img-wrap">
+            <div class="tech-img-fallback" style="display:flex">
+              <svg viewBox="0 0 64 64" fill="none"><ellipse cx="32" cy="32" rx="22" ry="8" stroke="#FF6B00" stroke-width="2"/><ellipse cx="32" cy="32" rx="22" ry="8" stroke="#FF6B00" stroke-width="1" transform="rotate(60 32 32)" opacity=".6"/><ellipse cx="32" cy="32" rx="22" ry="8" stroke="#FF6B00" stroke-width="1" transform="rotate(120 32 32)" opacity=".4"/><circle cx="32" cy="32" r="3" fill="#FF6B00"/></svg>
+            </div>
+          </div>
+          <h3 class="tech-name-new">SLAM Navigation</h3>
+          <p class="tech-badge">Algorithm</p>
+          <p class="tech-desc-new">Simultaneous localisation and mapping — Nav2 stack with A* path planning</p>
+        </div>
+
+        <div class="tech-card-new reveal">
+          <div class="tech-img-wrap">
+            <div class="tech-img-fallback" style="display:flex">
+              <svg viewBox="0 0 64 64" fill="none"><rect x="10" y="22" width="28" height="20" rx="3" stroke="#FF6B00" stroke-width="2"/><circle cx="24" cy="32" r="6" stroke="#FF6B00" stroke-width="1.5"/><circle cx="24" cy="32" r="2" fill="#FF6B00"/><path d="M44 24l6-4v24l-6-4V24z" stroke="#FF6B00" stroke-width="1.5"/></svg>
+            </div>
+          </div>
+          <h3 class="tech-name-new">YOLOv8</h3>
+          <p class="tech-badge">AI / ML</p>
+          <p class="tech-desc-new">Real-time object detection for identifying medicine boxes and shelf locations</p>
+        </div>
+
+        <div class="tech-card-new reveal">
+          <div class="tech-img-wrap">
+            <div class="tech-img-fallback" style="display:flex">
+              <svg viewBox="0 0 64 64" fill="none"><rect x="8" y="8" width="48" height="32" rx="3" stroke="#FF6B00" stroke-width="2"/><line x1="8" y1="16" x2="56" y2="16" stroke="#FF6B00" stroke-width="1.5"/><line x1="20" y1="8" x2="20" y2="40" stroke="#FF6B00" stroke-width="1" opacity=".4"/><rect x="14" y="44" width="36" height="12" rx="2" stroke="#FF6B00" stroke-width="1.5"/><line x1="32" y1="40" x2="32" y2="44" stroke="#FF6B00" stroke-width="2"/></svg>
+            </div>
+          </div>
+          <h3 class="tech-name-new">Python + Flask</h3>
+          <p class="tech-badge">Web Backend</p>
+          <p class="tech-desc-new">REST API + real-time dashboard; paho-MQTT bridge between web and robot</p>
+        </div>
+
+        <div class="tech-card-new reveal">
+          <div class="tech-img-wrap">
+            <div class="tech-img-fallback" style="display:flex">
+              <svg viewBox="0 0 64 64" fill="none"><rect x="10" y="18" width="14" height="14" rx="2" stroke="#FF6B00" stroke-width="2"/><rect x="40" y="18" width="14" height="14" rx="2" stroke="#FF6B00" stroke-width="2"/><rect x="25" y="38" width="14" height="14" rx="2" stroke="#FF6B00" stroke-width="2"/><path d="M24 24h16M32 32v6" stroke="#FF6B00" stroke-width="1.5"/><circle cx="32" cy="24" r="2" fill="#FF6B00"/></svg>
+            </div>
+          </div>
+          <h3 class="tech-name-new">MQTT (QoS 2)</h3>
+          <p class="tech-badge">Protocol</p>
+          <p class="tech-desc-new">Exactly-once delivery for emergency-stop commands over the local network</p>
+        </div>
+
+        <div class="tech-card-new reveal">
+          <div class="tech-img-wrap">
+            <div class="tech-img-fallback" style="display:flex">
+              <svg viewBox="0 0 64 64" fill="none"><rect x="10" y="24" width="44" height="8" rx="2" stroke="#FF6B00" stroke-width="2"/><circle cx="22" cy="28" r="2" fill="#FF6B00"/><circle cx="32" cy="28" r="2" fill="#FF6B00" opacity=".6"/><circle cx="42" cy="28" r="2" fill="#FF6B00" opacity=".3"/><path d="M10 32v12a2 2 0 002 2h8" stroke="#FF6B00" stroke-width="1.5"/><path d="M54 32v12a2 2 0 01-2 2H44" stroke="#FF6B00" stroke-width="1.5"/><rect x="22" y="42" width="20" height="6" rx="1" stroke="#FF6B00" stroke-width="1.5"/></svg>
+            </div>
+          </div>
+          <h3 class="tech-name-new">OpenCV 4</h3>
+          <p class="tech-badge">Vision</p>
+          <p class="tech-desc-new">Image processing pipeline: colour filtering, contour detection, QR decoding</p>
+        </div>
+
       </div>
     </div>
   </section>
 
-  <!-- ══════════════════════════════════════════════════════════════
-       STEEL, CODE & VISION — 3D Orbit Gallery (shadway style)
-       Three.js ParticleSphere + photo planes orbiting in 3D
-       ══════════════════════════════════════════════════════════════ -->
+  <!-- ═══════════════════════════════════════════════════════════
+       STEEL, CODE & VISION — Vertical Image Stack
+       jatin-yadav05/vertical-image-stack translation:
+       Cards are sticky-stacked; JS drives scale-down of prev card
+       as next one slides up from below — no props needed.
+       ═══════════════════════════════════════════════════════════ -->
   <section class="build-section" id="build" aria-labelledby="build-title">
     <div class="container">
       <div class="section-header">
         <span class="section-label">Behind the Build</span>
         <h2 class="section-title" id="build-title">Steel, Code &amp; Vision</h2>
-        <p class="section-subtitle">Ten weeks of fabrication, wiring, and integration — from raw metal to autonomous robot</p>
+        <p class="section-subtitle">Ten weeks of fabrication, wiring, and integration</p>
       </div>
-
-      <!-- Three.js canvas injected here by JS -->
-      <div id="orbitGallery" class="orbit-gallery" role="region" aria-label="3D build photo gallery">
-        <div class="orbit-loading" id="orbitLoading">
-          <div class="orbit-loading-ring"></div>
-          <p>Loading gallery…</p>
-        </div>
-      </div>
-
-      <p class="orbit-hint" aria-hidden="true">
-        <span>⟳</span> Drag to orbit &nbsp;·&nbsp; Scroll to zoom
-      </p>
     </div>
+
+    <!-- Vertical image stack — wrapper gives scroll height, inner is sticky frame -->
+    <div class="vis-wrapper" id="verticalStack">
+      <div class="vis-frame">
+
+        <div class="vis-card" data-label="Design & Fabrication" data-num="01">
+          <img src="{{ url_for('static', filename='images/work-01.jpg') }}" alt="Design and fabrication" loading="eager" onerror="this.parentElement.classList.add('vis-no-img')">
+          <div class="vis-card-info"><span class="vis-card-num">01</span><span class="vis-card-label">Design &amp; Fabrication</span></div>
+        </div>
+
+        <div class="vis-card" data-label="Chassis Assembly" data-num="02">
+          <img src="{{ url_for('static', filename='images/work-02.jpg') }}" alt="Chassis assembly" loading="lazy" onerror="this.parentElement.classList.add('vis-no-img')">
+          <div class="vis-card-info"><span class="vis-card-num">02</span><span class="vis-card-label">Chassis Assembly</span></div>
+        </div>
+
+        <div class="vis-card" data-label="Electronics Wiring" data-num="03">
+          <img src="{{ url_for('static', filename='images/work-03.jpg') }}" alt="Electronics wiring" loading="lazy" onerror="this.parentElement.classList.add('vis-no-img')">
+          <div class="vis-card-info"><span class="vis-card-num">03</span><span class="vis-card-label">Electronics Wiring</span></div>
+        </div>
+
+        <div class="vis-card" data-label="LiDAR Mounting" data-num="04">
+          <img src="{{ url_for('static', filename='images/work-04.jpg') }}" alt="LiDAR mounting" loading="lazy" onerror="this.parentElement.classList.add('vis-no-img')">
+          <div class="vis-card-info"><span class="vis-card-num">04</span><span class="vis-card-label">LiDAR Mounting</span></div>
+        </div>
+
+        <div class="vis-card" data-label="Vision System" data-num="05">
+          <img src="{{ url_for('static', filename='images/work-05.jpg') }}" alt="Vision system" loading="lazy" onerror="this.parentElement.classList.add('vis-no-img')">
+          <div class="vis-card-info"><span class="vis-card-num">05</span><span class="vis-card-label">Vision System</span></div>
+        </div>
+
+        <div class="vis-card" data-label="Navigation Testing" data-num="06">
+          <img src="{{ url_for('static', filename='images/work-06.jpg') }}" alt="Navigation testing" loading="lazy" onerror="this.parentElement.classList.add('vis-no-img')">
+          <div class="vis-card-info"><span class="vis-card-num">06</span><span class="vis-card-label">Navigation Testing</span></div>
+        </div>
+
+        <div class="vis-card" data-label="Full Integration" data-num="07">
+          <img src="{{ url_for('static', filename='images/work-07.jpg') }}" alt="Full integration" loading="lazy" onerror="this.parentElement.classList.add('vis-no-img')">
+          <div class="vis-card-info"><span class="vis-card-num">07</span><span class="vis-card-label">Full Integration</span></div>
+        </div>
+
+      </div><!-- /vis-frame -->
+
+      <!-- Progress counter pinned to right while scrolling -->
+      <div class="vis-counter" aria-live="polite">
+        <span id="visCurrentNum">1</span>
+        <span class="vis-counter-sep">—</span>
+        <span>7</span>
+      </div>
+    </div>
+    <!-- /vis-wrapper -->
+
   </section>
 
-  <!-- ── Team ─────────────────────────────────────────────────────── -->
+  <!-- ═══════════════════════════════════════════════════════════
+       TEAM SHOWCASE (makviesainte style)
+       Photo-ready cards: save team-*.jpg to static/images/
+       ═══════════════════════════════════════════════════════════ -->
   <section class="team-section" id="team" aria-labelledby="team-title">
     <div class="container">
       <div class="section-header">
@@ -172,49 +337,78 @@
         <h2 class="section-title" id="team-title">Built by Engineers</h2>
         <p class="section-subtitle">Four disciplines. One robot.</p>
       </div>
-      <div class="team-grid">
-        <div class="team-card reveal">
-          <div class="team-avatar" aria-hidden="true">N</div>
-          <h3 class="team-name">Nathalie Ahmed</h3>
-          <p class="team-role-title">Navigation Lead</p>
-          <p class="team-dept">Mechatronics Engineering</p>
-          <p class="team-subsystem">Navigation · SLAM Subsystem</p>
+
+      <div class="team-showcase-grid">
+
+        <div class="ts-card reveal">
+          <div class="ts-photo-wrap">
+            <img src="{{ url_for('static', filename='images/team-nathalie.jpg') }}" alt="Nathalie Ahmed" class="ts-photo" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+            <div class="ts-avatar-fallback" style="display:none">N</div>
+            <div class="ts-photo-overlay">
+              <span class="ts-overlay-role">Navigation Lead</span>
+            </div>
+          </div>
+          <div class="ts-info">
+            <h3 class="ts-name">Nathalie Ahmed</h3>
+            <p class="ts-title">Navigation &amp; SLAM</p>
+            <p class="ts-dept">Mechatronics Engineering</p>
+          </div>
         </div>
-        <div class="team-card reveal">
-          <div class="team-avatar" aria-hidden="true">A</div>
-          <h3 class="team-name">Abdalla Elsiddig</h3>
-          <p class="team-role-title">Vision &amp; Systems Lead</p>
-          <p class="team-dept">Informatics Engineering</p>
-          <p class="team-subsystem">Vision · Battery · UI · Web System</p>
+
+        <div class="ts-card reveal ts-card--featured">
+          <div class="ts-photo-wrap">
+            <img src="{{ url_for('static', filename='images/team-abdalla.jpg') }}" alt="Abdalla Elsiddig" class="ts-photo" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+            <div class="ts-avatar-fallback" style="display:none">A</div>
+            <div class="ts-photo-overlay">
+              <span class="ts-overlay-role">Vision &amp; Systems Lead</span>
+            </div>
+          </div>
+          <div class="ts-info">
+            <h3 class="ts-name">Abdalla Elsiddig</h3>
+            <p class="ts-title">Vision · Battery · UI · Web</p>
+            <p class="ts-dept">Informatics Engineering</p>
+          </div>
         </div>
-        <div class="team-card reveal">
-          <div class="team-avatar" aria-hidden="true">M</div>
-          <h3 class="team-name">Mahanna Alhumaimi</h3>
-          <p class="team-role-title">Mechanical Lead</p>
-          <p class="team-dept">Mechatronics Engineering</p>
-          <p class="team-subsystem">Mechanical Subsystem</p>
+
+        <div class="ts-card reveal">
+          <div class="ts-photo-wrap">
+            <img src="{{ url_for('static', filename='images/team-mahanna.jpg') }}" alt="Mahanna Alhumaimi" class="ts-photo" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+            <div class="ts-avatar-fallback" style="display:none">M</div>
+            <div class="ts-photo-overlay">
+              <span class="ts-overlay-role">Mechanical Lead</span>
+            </div>
+          </div>
+          <div class="ts-info">
+            <h3 class="ts-name">Mahanna Alhumaimi</h3>
+            <p class="ts-title">Mechanical Subsystem</p>
+            <p class="ts-dept">Mechatronics Engineering</p>
+          </div>
         </div>
-        <div class="team-card reveal">
-          <div class="team-avatar" aria-hidden="true">Z</div>
-          <h3 class="team-name">Zahra Jassim</h3>
-          <p class="team-role-title">Actuation Lead</p>
-          <p class="team-dept">Informatics Engineering</p>
-          <p class="team-subsystem">Lifting · Suctioning Subsystem</p>
+
+        <div class="ts-card reveal">
+          <div class="ts-photo-wrap">
+            <img src="{{ url_for('static', filename='images/team-zahra.jpg') }}" alt="Zahra Jassim" class="ts-photo" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+            <div class="ts-avatar-fallback" style="display:none">Z</div>
+            <div class="ts-photo-overlay">
+              <span class="ts-overlay-role">Actuation Lead</span>
+            </div>
+          </div>
+          <div class="ts-info">
+            <h3 class="ts-name">Zahra Jassim</h3>
+            <p class="ts-title">Lifting &amp; Suction</p>
+            <p class="ts-dept">Informatics Engineering</p>
+          </div>
         </div>
+
       </div>
     </div>
   </section>
 
-  <!-- ── Footer ───────────────────────────────────────────────────── -->
+  <!-- ── Footer ────────────────────────────────────────────────── -->
   <footer class="footer">
-    <p class="footer-text">
-      © 2026 <span>Navixa</span> · Navigate The Future ·
-      Nathalie · Abdalla · Mahanna · Zahra
-    </p>
+    <p class="footer-text">© 2026 <span>Navixa</span> · Navigate The Future · Nathalie · Abdalla · Mahanna · Zahra</p>
   </footer>
 
-  <!-- Three.js CDN (must load before script.js) -->
-  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
   <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>

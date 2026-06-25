@@ -895,95 +895,214 @@ tbody td {
   line-height: 1.6;
 }
 
-/* ── Team section ───────────────────────────────────────────────────────────── */
+/* ── Expanded tech grid (new design with images) ──────────────────────────── */
+.tech-grid-expanded {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--s5);
+  margin-top: var(--s8);
+}
+
+.tech-card-new {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: var(--s5) var(--s4);
+  text-align: center;
+  cursor: default;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: transform var(--t-mid) var(--spring),
+              border-color var(--t-mid),
+              box-shadow var(--t-mid),
+              opacity var(--t-slow) var(--ease);
+}
+
+.tech-card-new.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.tech-card-new:hover {
+  transform: translateY(-6px);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-glow);
+}
+
+.tech-img-wrap {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto var(--s3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tech-img {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+}
+
+.tech-img-fallback {
+  width: 56px;
+  height: 56px;
+  align-items: center;
+  justify-content: center;
+}
+
+.tech-img-fallback svg {
+  width: 56px;
+  height: 56px;
+}
+
+.tech-name-new {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  margin-bottom: var(--s1);
+  color: var(--white);
+}
+
+.tech-badge {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--orange);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: var(--s2);
+}
+
+.tech-desc-new {
+  font-size: var(--text-xs);
+  color: var(--white-30);
+  line-height: 1.55;
+}
+
+/* ── Team section — makviesainte/team-showcase style ────────────────────────── */
 .team-section {
   padding: var(--s20) var(--s6);
   position: relative;
   z-index: 1;
 }
 
-.team-grid {
+/* 4-column photo showcase grid */
+.team-showcase-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: var(--s5);
-  max-width: 1000px;
-  margin: 0 auto;
+  margin-top: var(--s8);
 }
 
-.team-card {
+.ts-card {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
-  padding: var(--s8) var(--s5);
-  text-align: center;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(24px);
   transition: transform var(--t-mid) var(--spring),
               border-color var(--t-mid),
               box-shadow var(--t-mid);
-  opacity: 0;
-  transform: translateY(24px);
 }
 
-.team-card.visible {
+.ts-card.visible {
   opacity: 1;
   transform: translateY(0);
   transition: opacity var(--t-slow) var(--ease), transform var(--t-slow) var(--ease),
               border-color var(--t-mid), box-shadow var(--t-mid);
 }
 
-.team-card:hover {
-  transform: translateY(-6px);
+.ts-card:hover {
+  transform: translateY(-8px);
   border-color: var(--border-strong);
   box-shadow: var(--shadow-glow);
 }
 
-.team-avatar {
-  width: 64px; height: 64px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--orange), var(--orange-light));
+/* Featured card (Abdalla) — slightly taller, orange border */
+.ts-card--featured {
+  border-color: var(--border-strong);
+}
+
+.ts-card--featured .ts-photo-wrap { aspect-ratio: 3/4; }
+
+/* Photo container */
+.ts-photo-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3/4;
+  overflow: hidden;
+  background: var(--card-raised);
+}
+
+.ts-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.6s var(--ease);
+}
+
+.ts-card:hover .ts-photo { transform: scale(1.06); }
+
+/* Fallback initial letter when photo is missing */
+.ts-avatar-fallback {
+  width: 100%;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: var(--text-2xl);
+  font-size: 3.5rem;
+  font-weight: 700;
+  color: var(--orange);
+  background: linear-gradient(135deg, var(--card-raised), var(--bg-deep));
+  border-bottom: 1px solid var(--border);
+}
+
+/* Overlay slides up on hover */
+.ts-photo-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: var(--s3) var(--s4);
+  background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+  transform: translateY(100%);
+  transition: transform 0.35s var(--ease);
+}
+
+.ts-card:hover .ts-photo-overlay { transform: translateY(0); }
+
+.ts-overlay-role {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--orange);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* Text info below photo */
+.ts-info {
+  padding: var(--s4) var(--s4) var(--s5);
+}
+
+.ts-name {
+  font-size: var(--text-base);
   font-weight: 700;
   color: var(--white);
-  margin: 0 auto var(--s4);
-  box-shadow: 0 0 20px var(--orange-glow);
-  transition: transform var(--t-mid) var(--spring), box-shadow var(--t-mid);
+  margin-bottom: 3px;
 }
 
-.team-card:hover .team-avatar {
-  transform: scale(1.1);
-  box-shadow: 0 0 40px var(--orange-glow);
-}
-
-.team-name {
-  font-size: var(--text-base);
-  font-weight: 600;
-  margin-bottom: 4px;
-}
-
-.team-role-title {
+.ts-title {
   font-size: var(--text-xs);
-  color: var(--orange);
   font-weight: 600;
-  letter-spacing: 0.08em;
-  margin-bottom: var(--s2);
+  color: var(--orange);
+  letter-spacing: 0.06em;
+  margin-bottom: 3px;
 }
 
-.team-dept {
+.ts-dept {
   font-size: var(--text-xs);
   color: var(--white-30);
-}
-
-.team-subsystem {
-  font-size: var(--text-xs);
-  color: var(--white-60);
-  margin-top: var(--s2);
-  line-height: 1.5;
-  padding: var(--s2) var(--s3);
-  background: var(--white-10);
-  border-radius: var(--r-sm);
-  border: 1px solid var(--border);
 }
 
 /* ── Footer ─────────────────────────────────────────────────────────────────── */
@@ -1685,92 +1804,96 @@ tbody td {
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   MENU VERTICAL (berlix style)
-   Fixed right side · text labels · animated sliding pill indicator
+   MENU VERTICAL — exact berlix component (vanilla JS translation)
+   Source: menu-vertical.tsx
+     • gap-4 (16px between items)
+     • px-10 (40px horizontal padding)
+     • ArrowRight: initial { x:"-100%", opacity:0 } → hover { x:0, opacity:1, color }
+     • Label:      initial { x:-40 }               → hover { x:0, color }
+     • transition: duration 0.3s ease-out
+     • font-semibold text-4xl (36px) no-underline
    ═══════════════════════════════════════════════════════════════════ */
 
 .menu-vertical {
   position: fixed;
-  right: 28px;
+  right: 0;
   top: 50%;
   transform: translateY(-50%);
   z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 20px;
   animation: fadeIn 1s var(--ease) 1.2s both;
 }
 
-.mv-track {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 6px;
-  background: rgba(10, 10, 10, 0.88);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  box-shadow: 0 8px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,107,0,0.04);
-}
-
-/* Animated sliding pill — moves to active item */
-.mv-pill {
-  position: absolute;
-  left: 6px;
-  right: 6px;
-  top: 6px;
-  height: 36px;
-  background: var(--orange-dim);
-  border: 1px solid var(--border-strong);
-  border-radius: 10px;
-  transition: top 0.38s cubic-bezier(0.34, 1.4, 0.64, 1),
-              height 0.38s cubic-bezier(0.34, 1.4, 0.64, 1);
-  pointer-events: none;
-  z-index: 0;
-}
-
 .mv-item {
-  position: relative;
-  z-index: 1;
   display: flex;
   align-items: center;
-  height: 36px;
-  padding: 0 16px;
-  border-radius: 10px;
-  font-size: var(--text-sm);
-  font-weight: 500;
-  color: var(--white-30);
-  letter-spacing: 0.02em;
+  gap: 6px;
+  cursor: pointer;
+  text-decoration: none;
+  color: var(--white);
+}
+
+.mv-arrow-clip {
+  width: 16px;
+  height: 16px;
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mv-arrow {
+  width: 16px;
+  height: 16px;
+  color: #ff6900;
+  transform: translateX(-100%);
+  opacity: 0;
+  transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.mv-arrow svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 3;
+  display: block;
+}
+
+.mv-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.2;
   white-space: nowrap;
-  transition: color var(--t-fast) var(--ease);
+  text-decoration: none;
+  color: inherit;
+  transform: translateX(-20px);
+  transition: transform 0.3s ease-out, color 0.3s ease-out;
 }
 
-.mv-item:hover  { color: var(--white-60); }
-
-.mv-item.active {
-  color: var(--orange);
-  font-weight: 600;
+/* HOVER — arrow slides to x:0 + label slides to x:0, both turn orange */
+.mv-item:hover .mv-arrow,
+.mv-item.active .mv-arrow {
+  transform: translateX(0);
+  opacity: 1;
 }
 
-/* Dashboard CTA — separator + accent */
-.mv-cta {
-  position: relative;
-  margin-top: 6px;
-  padding-top: 4px;
-  color: var(--orange) !important;
-  font-weight: 600;
+.mv-item:hover .mv-label,
+.mv-item.active .mv-label {
+  transform: translateX(0);
+  color: #ff6900;
 }
 
-.mv-cta::before {
-  content: '';
-  position: absolute;
-  top: -2px;
-  left: 8px;
-  right: 8px;
-  height: 1px;
-  background: var(--border);
-}
-
-.mv-cta:hover { color: var(--orange-light) !important; }
+/* Dashboard CTA — always orange */
+.mv-cta .mv-label { color: #ff6900; }
+.mv-cta.active .mv-label,
+.mv-cta:hover .mv-label { color: var(--orange-light); }
 
 /* ═══════════════════════════════════════════════════════════════════
    HERO — LOGO + CONTAINER + SCROLL HINT
@@ -1832,92 +1955,153 @@ tbody td {
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   STEEL, CODE & VISION — 3D ORBIT GALLERY (shadway style)
-   Three.js ParticleSphere + photo planes in 3D orbit
+   STEEL, CODE & VISION — VERTICAL IMAGE STACK
+   jatin-yadav05/vertical-image-stack translation
+   Cards stack up as you scroll — sticky per card, scale-down prev
    ═══════════════════════════════════════════════════════════════════ */
 
 .build-section {
-  padding: var(--s20) var(--s6);
+  padding-top: var(--s20);
+  padding-bottom: var(--s20);
   position: relative;
   z-index: 1;
-  background: linear-gradient(180deg, transparent 0%, rgba(255,107,0,0.025) 50%, transparent 100%);
 }
 
-/* Three.js canvas wrapper */
-.orbit-gallery {
-  width: 100%;
-  height: 560px;
+.build-section .section-header {
+  padding: 0 var(--s6);
+  margin-bottom: var(--s12);
+}
+
+/* Tall scroll container: 7 cards × 100vh each */
+.vis-wrapper {
   position: relative;
-  border-radius: var(--r-xl);
+  height: calc(7 * 100vh);
+  margin-top: 0;
+}
+
+/* Sticky frame that fills the viewport */
+.vis-frame {
+  position: sticky;
+  top: 0;
+  height: 100vh;
   overflow: hidden;
-  border: 1px solid var(--border);
-  background: var(--bg-deep);
-  cursor: grab;
-  margin: 0 auto;
-  max-width: 1000px;
-}
-
-.orbit-gallery:active { cursor: grabbing; }
-
-.orbit-gallery canvas {
-  display: block;
-  width: 100% !important;
-  height: 100% !important;
-}
-
-/* Spinner shown before Three.js initialises */
-.orbit-loading {
-  position: absolute;
-  inset: 0;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--s4);
-  color: var(--white-30);
-  font-size: var(--text-sm);
+}
+
+/* Each card stacks absolutely inside the frame */
+.vis-card {
+  position: absolute;
+  top: 60px;
+  bottom: 60px;
+  left: 14%;
+  right: 14%;
+  border-radius: var(--r-xl);
+  overflow: hidden;
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  transform-origin: top center;
+  will-change: transform, opacity;
+  transition: box-shadow 0.3s var(--ease);
+}
+
+.vis-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
   pointer-events: none;
 }
 
-.orbit-loading-ring {
-  width: 44px;
-  height: 44px;
-  border: 2px solid var(--border);
-  border-top-color: var(--orange);
-  border-radius: 50%;
-  animation: spin-slow 1s linear infinite;
+/* Fallback gradient when image is missing */
+.vis-card.vis-no-img {
+  background: linear-gradient(135deg, var(--orange-dim) 0%, var(--card-raised) 100%);
+}
+.vis-card.vis-no-img img { display: none; }
+
+/* Bottom-left info bar */
+.vis-card-info {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s5) var(--s6);
+  background: linear-gradient(to top, rgba(0,0,0,0.75), transparent);
 }
 
-/* "Drag to orbit" hint below the canvas */
-.orbit-hint {
-  text-align: center;
-  margin-top: var(--s4);
+.vis-card-num {
   font-size: var(--text-xs);
-  color: var(--white-30);
-  letter-spacing: 0.08em;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: var(--orange);
 }
 
-.orbit-hint span {
-  display: inline-block;
-  animation: spin-slow 3s linear infinite;
-  margin-right: 4px;
+.vis-card-label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--white-90);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Scroll counter pinned right */
+.vis-counter {
+  position: absolute;
+  right: 60px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--white-30);
+  z-index: 10;
+  pointer-events: none;
+}
+
+.vis-counter #visCurrentNum {
+  font-size: var(--text-xl);
+  color: var(--orange);
+  line-height: 1;
+}
+
+.vis-counter-sep {
+  line-height: 1;
 }
 
 /* ═══════════════════════════════════════════════════════════════════
    RESPONSIVE — NEW COMPONENTS
    ═══════════════════════════════════════════════════════════════════ */
 
-@media (max-width: 1024px) {
-  .orbit-gallery { height: 440px; }
+@media (max-width: 1200px) {
+  .tech-grid-expanded { grid-template-columns: repeat(4, 1fr); }
+}
+
+@media (max-width: 1100px) {
+  .menu-vertical { display: none; }
+  .tech-grid-expanded { grid-template-columns: repeat(3, 1fr); }
+  .team-showcase-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 768px) {
-  .menu-vertical { display: none; }
   .hero-logo-wrap { width: 88px; height: 88px; }
-  .orbit-gallery  { height: 360px; }
+  .vis-card       { top: 40px; bottom: 40px; left: 5%; right: 5%; border-radius: var(--r-lg); }
+  .vis-counter    { right: 16px; }
+  .tech-grid-expanded { grid-template-columns: repeat(2, 1fr); }
+  .team-showcase-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 480px) {
   .hero-logo-wrap { width: 72px; height: 72px; }
-  .orbit-gallery  { height: 300px; }
+  .vis-card       { top: 20px; bottom: 20px; left: 2%; right: 2%; }
+  .tech-grid-expanded { grid-template-columns: repeat(2, 1fr); }
+  .team-showcase-grid { grid-template-columns: 1fr 1fr; }
 }
