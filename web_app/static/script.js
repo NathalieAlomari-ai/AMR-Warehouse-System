@@ -827,14 +827,16 @@ function escapeHtml(str) {
 }
 
 /* ════════════════════════════════════════════════════════════════════
-   VERTICAL NAV SCROLL SPY
-   Updates .active class on v-nav items as user scrolls through sections.
+   MENU VERTICAL — SCROLL SPY + SLIDING PILL (berlix style)
+   Moves the .mv-pill indicator to whichever section is in view.
    ════════════════════════════════════════════════════════════════════ */
-;(function initVNav() {
-  const vnav = document.getElementById('vNav');
-  if (!vnav) return;
+;(function initMenuVertical() {
+  const nav = document.getElementById('menuVertical');
+  if (!nav) return;
 
-  const items = vnav.querySelectorAll('.v-nav-item[href^="#"]');
+  const track   = nav.querySelector('.mv-track');
+  const pill    = document.getElementById('mvPill');
+  const items   = nav.querySelectorAll('.mv-item[href^="#"]');
   const sections = [];
 
   items.forEach(item => {
@@ -843,194 +845,253 @@ function escapeHtml(str) {
     if (sec) sections.push({ item, sec });
   });
 
-  function updateActive() {
-    const trigger = window.innerHeight * 0.45;
-    let activeSec = sections[0];
+  function movePill(activeItem) {
+    if (!pill || !track || !activeItem) return;
+    const trackRect = track.getBoundingClientRect();
+    const itemRect  = activeItem.getBoundingClientRect();
+    /* Offset relative to the track */
+    pill.style.top    = (itemRect.top - trackRect.top) + 'px';
+    pill.style.height = itemRect.height + 'px';
+  }
 
-    sections.forEach(entry => {
-      if (entry.sec.getBoundingClientRect().top <= trigger) {
-        activeSec = entry;
-      }
+  function updateActive() {
+    const trigger = window.innerHeight * 0.48;
+    let active = sections[0];
+    sections.forEach(e => {
+      if (e.sec.getBoundingClientRect().top <= trigger) active = e;
     });
 
     items.forEach(i => i.classList.remove('active'));
-    if (activeSec) activeSec.item.classList.add('active');
-  }
-
-  window.addEventListener('scroll', updateActive, { passive: true });
-  updateActive();
-})();
-
-/* ════════════════════════════════════════════════════════════════════
-   STEEL, CODE & VISION — IMAGE STACK CAROUSEL
-   Stacked card effect that fans on hover, auto-advances every 5s.
-   Photos: static/images/work-01.jpg … work-10.jpg
-   ════════════════════════════════════════════════════════════════════ */
-;(function initImageStack() {
-  const scene = document.getElementById('imageStackScene');
-  if (!scene) return;
-
-  /* Caption / description data for each photo */
-  const PHOTOS = [
-    { src: '/static/images/work-01.jpg', caption: 'Design & Fabrication',       desc: 'Starting with SolidWorks CAD models and precision sheet metal work at the UTB workshop.' },
-    { src: '/static/images/work-02.jpg', caption: 'Chassis Assembly',           desc: 'Welding and assembling the main robot chassis with precision-cut aluminum profiles.' },
-    { src: '/static/images/work-03.jpg', caption: 'Electronics Wiring',         desc: 'Integrating the Jetson Orin Nano, motor controllers, and power distribution board.' },
-    { src: '/static/images/work-04.jpg', caption: 'LiDAR Mounting',             desc: 'Installing the LiDAR sensor at the optimal height for full 360° environmental mapping.' },
-    { src: '/static/images/work-05.jpg', caption: 'Vision System Integration',  desc: 'Mounting and calibrating the Astra Pro depth camera for medicine box detection.' },
-    { src: '/static/images/work-06.jpg', caption: 'Suction Actuator Build',     desc: 'Fabricating the pneumatic suction lifting mechanism for precise box pickup.' },
-    { src: '/static/images/work-07.jpg', caption: 'ROS2 Bring-Up',              desc: 'First successful ROS2 node communication and motor controller initialization test.' },
-    { src: '/static/images/work-08.jpg', caption: 'Navigation Testing',         desc: 'Testing SLAM-based autonomous navigation in the UTB warehouse lab environment.' },
-    { src: '/static/images/work-09.jpg', caption: 'Full System Integration',    desc: 'All subsystems running: vision, navigation, lifting, and the web dashboard together.' },
-    { src: '/static/images/work-10.jpg', caption: 'Final Demo',                 desc: 'Navixa completing a full pick-and-deliver cycle autonomously during the final demo.' },
-  ];
-
-  const captionEl  = document.getElementById('stackCaption');
-  const descEl     = document.getElementById('stackDesc');
-  const currentEl  = document.getElementById('stackCurrentNum');
-  const totalEl    = document.getElementById('stackTotalNum');
-  const dotsEl     = document.getElementById('stackDots');
-  const prevBtn    = document.getElementById('stackPrev');
-  const nextBtn    = document.getElementById('stackNext');
-  const progressEl = document.getElementById('stackProgress');
-
-  let current    = 0;
-  let isAnimating = false;
-  let autoTimer;
-  let isHovered  = false;
-
-  /* Clear the placeholder hint, inject real cards */
-  scene.innerHTML = '';
-
-  const cards = PHOTOS.map((photo, i) => {
-    const card = document.createElement('div');
-    card.className = 'stack-card';
-    card.dataset.index = i;
-
-    const img   = document.createElement('img');
-    img.src     = photo.src;
-    img.alt     = photo.caption;
-    img.loading = i === 0 ? 'eager' : 'lazy';
-
-    /* If image fails (file not saved yet) — show a text placeholder */
-    img.onerror = () => {
-      card.classList.add('stack-card--no-img');
-      card.innerHTML = `<div class="stack-card-placeholder"><span>${escapeHtml(photo.caption)}</span></div>`;
-    };
-
-    card.appendChild(img);
-    scene.appendChild(card);
-    return card;
-  });
-
-  /* Build nav dots */
-  if (totalEl) totalEl.textContent = PHOTOS.length;
-
-  if (dotsEl) {
-    PHOTOS.forEach((_, i) => {
-      const dot = document.createElement('div');
-      dot.className = 'stack-dot' + (i === 0 ? ' active' : '');
-      dot.addEventListener('click', () => goTo(i));
-      dotsEl.appendChild(dot);
-    });
-  }
-
-  /* ── Position cards in the stack ── */
-  function applyPositions(fanOut) {
-    const n    = PHOTOS.length;
-    const SHOW = 4;   /* max cards visible behind active */
-
-    cards.forEach((card, i) => {
-      const offset = ((i - current + n) % n);
-
-      card.style.transition = 'transform 0.5s cubic-bezier(0.34,1.2,0.64,1), opacity 0.4s ease';
-
-      if (offset === 0) {
-        card.style.zIndex    = '10';
-        card.style.opacity   = '1';
-        card.style.transform = 'translateX(0) translateY(0) rotate(0deg) scale(1)';
-        card.classList.add('active');
-
-      } else if (offset <= SHOW) {
-        card.classList.remove('active');
-        const spread = fanOut ? 30 : 20;
-        const xShift = offset * spread;
-        const yShift = fanOut ? offset * 5 : offset * 9;
-        const rot    = fanOut ? offset * 7 : offset * 5;
-        const sc     = 1 - offset * 0.07;
-        const op     = Math.max(0, 1 - offset * 0.28);
-
-        card.style.zIndex    = String(10 - offset);
-        card.style.opacity   = String(op);
-        card.style.transform =
-          `translateX(${xShift}px) translateY(${yShift}px) rotate(${rot}deg) scale(${sc})`;
-
-      } else {
-        card.classList.remove('active');
-        card.style.zIndex    = '0';
-        card.style.opacity   = '0';
-        card.style.transform = 'translateX(80px) scale(0.7)';
-      }
-    });
-  }
-
-  function updateUI() {
-    const photo = PHOTOS[current];
-    if (captionEl)  captionEl.textContent  = photo.caption;
-    if (descEl)     descEl.textContent     = photo.desc;
-    if (currentEl)  currentEl.textContent  = current + 1;
-    if (progressEl) progressEl.style.width = `${((current + 1) / PHOTOS.length) * 100}%`;
-
-    if (dotsEl) {
-      dotsEl.querySelectorAll('.stack-dot').forEach((dot, i) => {
-        dot.classList.toggle('active', i === current);
-      });
+    if (active) {
+      active.item.classList.add('active');
+      movePill(active.item);
     }
   }
 
-  function goTo(idx) {
-    if (isAnimating) return;
-    isAnimating = true;
-    current     = ((idx % PHOTOS.length) + PHOTOS.length) % PHOTOS.length;
-    applyPositions(isHovered);
-    updateUI();
-    setTimeout(() => { isAnimating = false; }, 520);
+  window.addEventListener('scroll', updateActive, { passive: true });
+  /* Wait one frame for layout to settle before first pill position */
+  requestAnimationFrame(() => requestAnimationFrame(updateActive));
+})();
+
+/* ════════════════════════════════════════════════════════════════════
+   STEEL, CODE & VISION — 3D ORBIT GALLERY  (shadway / Three.js)
+   Faithful recreation of shadway's ParticleSphere + OrbitControls.
+   Camera: position [-10, 1.5, 10]  fov 50  (matches component props)
+   ════════════════════════════════════════════════════════════════════ */
+;(function initOrbitGallery() {
+  const container = document.getElementById('orbitGallery');
+  if (!container || typeof THREE === 'undefined') return;
+
+  /* Hide spinner once Three.js is ready */
+  const loader = document.getElementById('orbitLoading');
+
+  const W = container.clientWidth;
+  const H = container.clientHeight;
+
+  /* ── Scene ─────────────────────────────────────────────────────── */
+  const scene    = new THREE.Scene();
+  const camera   = new THREE.PerspectiveCamera(50, W / H, 0.1, 1000);
+  camera.position.set(-10, 1.5, 10);   /* exact props from component */
+  camera.lookAt(0, 0, 0);
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setSize(W, H);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setClearColor(0x000000, 0);
+  container.appendChild(renderer.domElement);
+  if (loader) loader.style.display = 'none';
+
+  /* ── Lights ────────────────────────────────────────────────────── */
+  scene.add(new THREE.AmbientLight(0xffffff, 0.5));       /* ambientLight intensity 0.5 */
+  const pt = new THREE.PointLight(0xffffff, 1.5);
+  pt.position.set(10, 10, 10);                            /* pointLight position [10,10,10] */
+  scene.add(pt);
+  const orangePt = new THREE.PointLight(0xff6b00, 0.7);
+  orangePt.position.set(-6, 0, 6);
+  scene.add(orangePt);
+
+  /* ── ParticleSphere ────────────────────────────────────────────── */
+  /* Fibonacci sphere — uniform distribution matching ParticleSphere */
+  const N       = 3000;
+  const posArr  = new Float32Array(N * 3);
+  const colArr  = new Float32Array(N * 3);
+  const R       = 4.5;
+  const golden  = Math.PI * (3 - Math.sqrt(5));
+
+  for (let i = 0; i < N; i++) {
+    const y    = 1 - (i / (N - 1)) * 2;
+    const rAt  = Math.sqrt(Math.max(0, 1 - y * y));
+    const th   = golden * i;
+    posArr[i*3]   = R * Math.cos(th) * rAt;
+    posArr[i*3+1] = R * y;
+    posArr[i*3+2] = R * Math.sin(th) * rAt;
+    /* Orange + white mix */
+    if (Math.random() > 0.72) {
+      colArr[i*3] = 1; colArr[i*3+1] = 0.42; colArr[i*3+2] = 0;
+    } else {
+      const v = 0.8 + Math.random() * 0.2;
+      colArr[i*3] = v; colArr[i*3+1] = v; colArr[i*3+2] = v;
+    }
   }
 
-  function next() { goTo(current + 1); }
-  function prev() { goTo(current - 1); }
+  const sGeo = new THREE.BufferGeometry();
+  sGeo.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
+  sGeo.setAttribute('color',    new THREE.BufferAttribute(colArr, 3));
 
-  function resetAuto() {
-    clearInterval(autoTimer);
-    autoTimer = setInterval(next, 5000);
-  }
-
-  /* Fan out on hover */
-  scene.addEventListener('mouseenter', () => {
-    isHovered = true;
-    clearInterval(autoTimer);
-    applyPositions(true);
+  const sMat = new THREE.PointsMaterial({
+    size: 0.055,
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.88,
+    sizeAttenuation: true,
   });
 
-  scene.addEventListener('mouseleave', () => {
-    isHovered = false;
-    applyPositions(false);
-    resetAuto();
+  const particleSphere = new THREE.Points(sGeo, sMat);
+  scene.add(particleSphere);
+
+  /* ── Photo planes in orbit paths ──────────────────────────────── */
+  const PHOTO_SRCS = [
+    '/static/images/work-01.jpg', '/static/images/work-02.jpg',
+    '/static/images/work-03.jpg', '/static/images/work-04.jpg',
+    '/static/images/work-05.jpg', '/static/images/work-06.jpg',
+    '/static/images/work-07.jpg', '/static/images/work-08.jpg',
+    '/static/images/work-09.jpg', '/static/images/work-10.jpg',
+  ];
+
+  const orbitGroup  = new THREE.Group();
+  scene.add(orbitGroup);
+  const texLoader   = new THREE.TextureLoader();
+  const ORBIT_R     = 7.8;
+  const fallback    = [0xff6b00, 0xff9a40, 0x1a1a1a];
+
+  PHOTO_SRCS.forEach((src, i) => {
+    const angle = (i / PHOTO_SRCS.length) * Math.PI * 2;
+    /* Distribute photos across 3 orbit rings at different inclinations */
+    const ring  = i % 3;
+    const tilt  = [-0.4, 0.1, 0.5][ring];
+    const x     = Math.cos(angle) * ORBIT_R;
+    const y     = Math.sin(angle * 0.5) * 1.8 + tilt * 2;
+    const z     = Math.sin(angle) * ORBIT_R;
+
+    /* Frame (slightly larger, orange border) */
+    const frameGeo = new THREE.PlaneGeometry(2.7, 2.0);
+    const frameMat = new THREE.MeshBasicMaterial({
+      color: 0xff6b00, transparent: true, opacity: 0.55, side: THREE.DoubleSide,
+    });
+    const frame = new THREE.Mesh(frameGeo, frameMat);
+    frame.position.set(x, y, z);
+    frame.lookAt(0, 0, 0);
+    orbitGroup.add(frame);
+
+    /* Photo plane */
+    const planeGeo = new THREE.PlaneGeometry(2.5, 1.85);
+    const planeMat = new THREE.MeshStandardMaterial({
+      color: fallback[i % 3], transparent: true, opacity: 0.9,
+      side: THREE.DoubleSide, roughness: 0.4, metalness: 0.1,
+    });
+    const plane = new THREE.Mesh(planeGeo, planeMat);
+    plane.position.set(x, y, z);
+    plane.lookAt(0, 0, 0);
+    orbitGroup.add(plane);
+
+    /* Load actual texture asynchronously */
+    texLoader.load(src, tex => {
+      tex.colorSpace = THREE.SRGBColorSpace;
+      plane.material = new THREE.MeshStandardMaterial({
+        map: tex, transparent: true, opacity: 0.92,
+        side: THREE.DoubleSide, roughness: 0.4, metalness: 0.1,
+      });
+    });
   });
 
-  /* Swipe to navigate on mobile */
-  let swipeX = 0;
-  scene.addEventListener('touchstart', e => { swipeX = e.touches[0].clientX; }, { passive: true });
-  scene.addEventListener('touchend',   e => {
-    const dx = e.changedTouches[0].clientX - swipeX;
-    if (Math.abs(dx) > 50) { dx < 0 ? next() : prev(); }
+  /* ── OrbitControls (manual — equivalent to drei OrbitControls) ── */
+  let isDragging = false;
+  let dragStart  = { x: 0, y: 0 };
+  let rotY = 0.3,  rotX = 0.1;   /* current spherical angles */
+  let velX = 0,    velY = 0;
+  const DRAG_SPEED = 0.005;
+  const DAMP       = 0.92;
+  const AUTO_ROT   = 0.004;
+
+  /* enablePan=true / enableZoom=true / enableRotate=true */
+  let zoomDist = camera.position.length();
+
+  renderer.domElement.addEventListener('mousedown', e => {
+    isDragging = true;
+    dragStart  = { x: e.clientX, y: e.clientY };
+  });
+  window.addEventListener('mouseup',  () => { isDragging = false; });
+  window.addEventListener('mousemove', e => {
+    if (!isDragging) return;
+    velX = (e.clientX - dragStart.x) * DRAG_SPEED;
+    velY = (e.clientY - dragStart.y) * DRAG_SPEED;
+    rotY    += velX;
+    rotX    += velY;
+    rotX     = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, rotX));
+    dragStart = { x: e.clientX, y: e.clientY };
+  });
+
+  /* Scroll to zoom */
+  container.addEventListener('wheel', e => {
+    e.preventDefault();
+    zoomDist = Math.max(8, Math.min(22, zoomDist + e.deltaY * 0.02));
+  }, { passive: false });
+
+  /* Touch */
+  let touchPrev = null;
+  renderer.domElement.addEventListener('touchstart', e => {
+    touchPrev = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  }, { passive: true });
+  renderer.domElement.addEventListener('touchmove', e => {
+    if (!touchPrev) return;
+    velX = (e.touches[0].clientX - touchPrev.x) * DRAG_SPEED * 0.7;
+    velY = (e.touches[0].clientY - touchPrev.y) * DRAG_SPEED * 0.7;
+    rotY    += velX;
+    rotX    += velY;
+    rotX     = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, rotX));
+    touchPrev = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  }, { passive: true });
+  renderer.domElement.addEventListener('touchend', () => { touchPrev = null; });
+
+  /* ── Resize ────────────────────────────────────────────────────── */
+  window.addEventListener('resize', () => {
+    const w = container.clientWidth;
+    const h = container.clientHeight;
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
   }, { passive: true });
 
-  /* Buttons */
-  if (prevBtn) prevBtn.addEventListener('click', prev);
-  if (nextBtn) nextBtn.addEventListener('click', next);
+  /* ── Animation loop ────────────────────────────────────────────── */
+  let clock = 0;
 
-  /* Init */
-  applyPositions(false);
-  updateUI();
-  resetAuto();
+  function animate() {
+    requestAnimationFrame(animate);
+    clock += 0.01;
+
+    /* Auto-rotate when not dragging */
+    if (!isDragging) {
+      rotY += AUTO_ROT;
+      velX *= DAMP;
+      velY *= DAMP;
+    }
+
+    /* Smooth zoom */
+    const camLen = camera.position.length();
+    const zoomD  = (zoomDist - camLen) * 0.06;
+    camera.position.multiplyScalar(1 + zoomD / camLen);
+
+    /* Apply spherical rotation to orbit group + particle sphere */
+    orbitGroup.rotation.y      = rotY;
+    orbitGroup.rotation.x      = rotX;
+    particleSphere.rotation.y  = rotY * 0.4;
+    particleSphere.rotation.x  = rotX * 0.4;
+
+    /* Gentle pulse on particle opacity */
+    particleSphere.material.opacity = 0.78 + Math.sin(clock) * 0.1;
+
+    renderer.render(scene, camera);
+  }
+
+  animate();
 })();
