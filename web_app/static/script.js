@@ -281,16 +281,16 @@ let lastUpdateTime = null;
 let prevState      = null;   // detect state changes for animations
 let tickerId       = null;   // "X seconds ago" counter
 
-/* Robot state → matching SVG icon (set via innerHTML) */
-const _SVG = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+/* Robot state → Iconify icon HTML (set via innerHTML, Iconify auto-scans mutations) */
+const _IC = (icon) => `<span class="iconify" data-icon="${icon}" data-width="44" data-height="44" style="color:var(--orange)"></span>`;
 const STATE_ICONS = {
-  'IDLE':          _SVG('<rect x="4" y="4" width="16" height="16" rx="3"/><rect x="9" y="9" width="6" height="6" rx="1"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/>'),
-  'NAVIGATING':    _SVG('<polygon points="12,2 22,22 12,17 2,22"/>'),
-  'SCANNING QR':   _SVG('<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><line x1="14" y1="14" x2="16" y2="14"/><line x1="21" y1="14" x2="21" y2="17"/><line x1="14" y1="18" x2="18" y2="18"/><line x1="18" y1="21" x2="21" y2="21"/><line x1="18" y1="18" x2="18" y2="21"/>'),
-  'DETECTING BOX': _SVG('<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>'),
-  'ALIGNING':      _SVG('<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="8"/><line x1="12" y1="16" x2="12" y2="22"/><line x1="2" y1="12" x2="8" y2="12"/><line x1="16" y1="12" x2="22" y2="12"/>'),
-  'LIFTING':       _SVG('<line x1="12" y1="20" x2="12" y2="4"/><polyline points="6,10 12,4 18,10"/><line x1="4" y1="20" x2="20" y2="20"/>'),
-  'DELIVERING':    _SVG('<path d="M1 4h15l3 5v5H1z"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><line x1="1" y1="9" x2="19" y2="9"/>'),
+  'IDLE':          _IC('fluent:bot-24-regular'),
+  'NAVIGATING':    _IC('fluent:navigation-24-filled'),
+  'SCANNING QR':   _IC('fluent:qr-code-24-regular'),
+  'DETECTING BOX': _IC('fluent:eye-24-filled'),
+  'ALIGNING':      _IC('fluent:target-arrow-24-regular'),
+  'LIFTING':       _IC('fluent:arrow-upload-24-regular'),
+  'DELIVERING':    _IC('fluent:vehicle-truck-24-regular'),
 };
 
 /* ════════════════════════════════════════════════════════════════════
@@ -517,6 +517,7 @@ function updateStatusPanel(robot) {
   }
   if (iconEl) {
     iconEl.innerHTML = STATE_ICONS[stateVal] || STATE_ICONS['IDLE'];
+    if (window.Iconify) Iconify.scan(iconEl);
   }
 
   /* Status badge */
@@ -828,15 +829,14 @@ function escapeHtml(str) {
 }
 
 /* ════════════════════════════════════════════════════════════════════
-   MENU VERTICAL — SCROLL SPY  (berlix exact translation)
+   LUMA BAR — SCROLL SPY  (ruixen.ui/futuristic-nav translation)
    Tracks which section is active and applies .active to that nav item.
-   Active item: arrow visible at x:0 + label at x:0 orange (CSS handles it).
    ════════════════════════════════════════════════════════════════════ */
-;(function initMenuVertical() {
-  const nav = document.getElementById('menuVertical');
-  if (!nav) return;
+;(function initLumaBar() {
+  const bar = document.getElementById('lumaBar');
+  if (!bar) return;
 
-  const items    = nav.querySelectorAll('.mv-item[href^="#"]');
+  const items    = Array.from(bar.querySelectorAll('.luma-item[href^="#"]'));
   const sections = [];
 
   items.forEach(item => {
@@ -931,12 +931,15 @@ function escapeHtml(str) {
   const stack = document.getElementById('photoStack');
   if (!stack) return;
 
-  const cards   = Array.from(stack.querySelectorAll('.ps-card'));
-  const nameEl  = document.getElementById('psActiveName');
-  const roleEl  = document.getElementById('psActiveRole');
-  const deptEl  = document.getElementById('psActiveDept');
-  const dots    = Array.from(document.querySelectorAll('.ps-dot'));
-  const N       = cards.length;
+  const cards       = Array.from(stack.querySelectorAll('.ps-card'));
+  const nameEl      = document.getElementById('psActiveName');
+  const roleEl      = document.getElementById('psActiveRole');
+  const deptEl      = document.getElementById('psActiveDept');
+  const linkedInEl  = document.getElementById('psLinkedIn');
+  const githubEl    = document.getElementById('psGithub');
+  const portfolioEl = document.getElementById('psPortfolio');
+  const dots        = Array.from(document.querySelectorAll('.ps-dot'));
+  const N           = cards.length;
 
   /* order[0] = index of front card */
   let order   = cards.map((_, i) => i);
@@ -992,6 +995,22 @@ function escapeHtml(str) {
       }, 160);
     }
     dots.forEach((dot, i) => dot.classList.toggle('active', order[0] === i));
+
+    /* Social links — show/hide based on data attributes */
+    const setLink = (el, url) => {
+      if (!el) return;
+      if (url && url !== '#' && url !== '') {
+        el.href = url;
+        el.style.display = 'inline-flex';
+      } else {
+        el.style.display = 'none';
+      }
+    };
+    setTimeout(() => {
+      setLink(linkedInEl,  front.dataset.linkedin);
+      setLink(githubEl,    front.dataset.github);
+      setLink(portfolioEl, front.dataset.portfolio);
+    }, 100);
   }
 
   /* Initial render — no transition on first paint */
