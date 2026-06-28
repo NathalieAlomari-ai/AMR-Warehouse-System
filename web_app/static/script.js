@@ -860,9 +860,84 @@ function escapeHtml(str) {
 })();
 
 /* ════════════════════════════════════════════════════════════════════
-   VERTICAL IMAGE STACK  (jatin-yadav05/vertical-image-stack)
-   Cards stack up inside a sticky frame as user scrolls.
-   Each card slides in, previous cards scale down and fade.
+   PHOTO GALLERY  (designali-in/gallery translation)
+   Editorial grid with hover overlays + keyboard-navigable lightbox.
+   ════════════════════════════════════════════════════════════════════ */
+;(function initGallery() {
+  const grid     = document.getElementById('galleryGrid');
+  const lightbox = document.getElementById('galleryLightbox');
+  if (!grid || !lightbox) return;
+
+  const items     = Array.from(grid.querySelectorAll('.gallery-item'));
+  const lbImg     = document.getElementById('lbImg');
+  const lbCaption = document.getElementById('lbCaption');
+  const lbCounter = document.getElementById('lbCounter');
+  const lbClose   = document.getElementById('lbClose');
+  const lbPrev    = document.getElementById('lbPrev');
+  const lbNext    = document.getElementById('lbNext');
+  const backdrop  = document.getElementById('lbBackdrop');
+  let current = 0;
+  const N = items.length;
+
+  /* Handle image load errors — add no-img class */
+  items.forEach(item => {
+    const img = item.querySelector('img');
+    if (img) img.addEventListener('error', () => item.classList.add('no-img'));
+  });
+
+  function open(index) {
+    current = ((index % N) + N) % N;
+    const item = items[current];
+    const img  = item.querySelector('img');
+    lbImg.src       = img ? img.src : '';
+    lbImg.alt       = item.dataset.label || '';
+    lbCaption.textContent = item.dataset.label || '';
+    lbCounter.textContent = `${current + 1} / ${N}`;
+    lightbox.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    requestAnimationFrame(() => { lightbox.style.opacity = '1'; });
+  }
+
+  function close() {
+    lightbox.style.display = 'none';
+    document.body.style.overflow = '';
+  }
+
+  function nav(dir) { open(current + dir); }
+
+  items.forEach((item, i) => item.addEventListener('click', () => open(i)));
+  lbClose.addEventListener('click', close);
+  backdrop.addEventListener('click', close);
+  lbPrev.addEventListener('click', () => nav(-1));
+  lbNext.addEventListener('click', () => nav(1));
+
+  document.addEventListener('keydown', e => {
+    if (lightbox.style.display !== 'flex') return;
+    if (e.key === 'Escape')      close();
+    if (e.key === 'ArrowLeft')   nav(-1);
+    if (e.key === 'ArrowRight')  nav(1);
+  });
+})();
+
+/* ════════════════════════════════════════════════════════════════════
+   THEME TOGGLE — light / dark mode
+   Persists preference to localStorage; applies before paint.
+   ════════════════════════════════════════════════════════════════════ */
+;(function initThemeToggle() {
+  const saved = localStorage.getItem('navixa-theme') || 'dark';
+  document.documentElement.dataset.theme = saved;
+
+  document.querySelectorAll('#themeToggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+      document.documentElement.dataset.theme = next;
+      localStorage.setItem('navixa-theme', next);
+    });
+  });
+})();
+
+/* ════════════════════════════════════════════════════════════════════
+   VERTICAL IMAGE STACK  (kept for backwards compat — no-op if removed)
    ════════════════════════════════════════════════════════════════════ */
 ;(function initVerticalStack() {
   const wrapper = document.getElementById('verticalStack');

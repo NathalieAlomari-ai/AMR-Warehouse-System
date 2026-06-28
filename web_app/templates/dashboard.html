@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Navixa — Operator Dashboard</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script>document.documentElement.dataset.theme=localStorage.getItem('navixa-theme')||'dark';</script>
   <script src="https://code.iconify.design/3/3.1.0/iconify.min.js"></script>
 </head>
 <body>
@@ -41,6 +42,18 @@
     </div>
 
     <div class="dash-topbar-right">
+      <!-- THEME TOGGLE -->
+      <button class="luma-theme-btn" id="themeToggle" aria-label="Toggle light/dark mode">
+        <svg class="theme-icon-sun" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" width="15" height="15" aria-hidden="true">
+          <circle cx="10" cy="10" r="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="10" y1="16" x2="10" y2="18"/>
+          <line x1="2" y1="10" x2="4" y2="10"/><line x1="16" y1="10" x2="18" y2="10"/>
+          <line x1="4.2" y1="4.2" x2="5.6" y2="5.6"/><line x1="14.4" y1="14.4" x2="15.8" y2="15.8"/>
+          <line x1="4.2" y1="15.8" x2="5.6" y2="14.4"/><line x1="14.4" y1="5.6" x2="15.8" y2="4.2"/>
+        </svg>
+        <svg class="theme-icon-moon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" width="15" height="15" aria-hidden="true">
+          <path d="M17 12A7 7 0 018 3a7 7 0 100 14 7 7 0 009-5z"/>
+        </svg>
+      </button>
       <!-- EMERGENCY STOP -->
       <button class="emergency-stop-btn" id="emergencyStopBtn"
               aria-label="Emergency stop — halt robot immediately"
