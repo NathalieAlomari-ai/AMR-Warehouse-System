@@ -35,8 +35,8 @@ from launch_ros.descriptions import ParameterFile
 from nav2_common.launch import RewrittenYaml
 
 
-# Absolute path to the saved warehouse map YAML
-MAP_YAML = '/home/amrobot/AMR-Warehouse-System/my_warehouse_map.yaml'
+# Map committed inside the amr_navigation package — portable, no username hardcoding
+MAP_YAML = os.path.join(get_package_share_directory('amr_navigation'), 'maps', 'warehouse_map.yaml')
 
 def generate_launch_description():
     nav_share      = get_package_share_directory('amr_navigation')
