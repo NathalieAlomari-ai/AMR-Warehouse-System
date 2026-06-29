@@ -4,10 +4,13 @@ robot_navigation.launch.py — Full autonomous navigation bringup
 Starts:
   1. bringup.launch.py     — hardware (serial_bridge, EKF, LiDAR, RSP)
   2. navigation.launch.py  — AMCL localization + Nav2 stack + twist_mux
-  3. RViz2                 — navigation visualization config
+  3. RViz2 (optional)      — only when launch_rviz:=true
 
-Usage:
+Usage on robot (headless):
   ros2 launch amr_bringup robot_navigation.launch.py
+
+Usage with RViz (laptop or machine with display):
+  ros2 launch amr_bringup robot_navigation.launch.py launch_rviz:=true
 
 In RViz:
   1. Click "2D Pose Estimate" and drag to set robot's starting position on the map
@@ -20,14 +23,22 @@ import os
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
 
 def generate_launch_description():
     bringup_share = get_package_share_directory('amr_bringup')
     nav_share     = get_package_share_directory('amr_navigation')
+
+    launch_rviz = LaunchConfiguration('launch_rviz')
+
+    declare_launch_rviz = DeclareLaunchArgument(
+        'launch_rviz', default_value='false',
+        description='Set true to launch RViz2 (requires a display)')
 
     bringup = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -42,6 +53,7 @@ def generate_launch_description():
     )
 
     rviz = Node(
+        condition=IfCondition(launch_rviz),
         package='rviz2',
         executable='rviz2',
         name='rviz2',
@@ -50,6 +62,7 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
+        declare_launch_rviz,
         bringup,
         navigation,
         rviz,
