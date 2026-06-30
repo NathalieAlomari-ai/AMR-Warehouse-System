@@ -27,11 +27,7 @@ Jetson note (when porting):
 import cv2
 import numpy as np
 from openni import openni2
-
-# Path to the OpenNI2 redistributable binaries
-# Windows: installed by the Astra SDK installer
-# Jetson/Linux: change to "/usr/lib"
-OPENNI2_PATH = r"C:\OpenNI2\Bin"
+from config import OPENNI2_PATH, RGB_CAM_INDEX
 
 # Astra Pro valid depth range (hardware limitation)
 DEPTH_MIN_MM = 600    # 60 cm — closer than this returns 0
@@ -49,7 +45,7 @@ class AstraCamera:
     Call close() when done (or use as a context manager: with AstraCamera() as cam).
     """
 
-    def __init__(self, rgb_index: int = 0):
+    def __init__(self, rgb_index: int = RGB_CAM_INDEX):
         """
         rgb_index: OpenCV camera index for the RGB stream.
                    Usually 0 or 1 depending on other connected cameras.

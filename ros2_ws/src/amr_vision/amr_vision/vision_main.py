@@ -41,6 +41,7 @@ from enum import Enum, auto
 from pathlib import Path
 from ultralytics import YOLO
 
+from config       import TEENSY_PORT, SHOW_WINDOW as _DEFAULT_SHOW, SERVO_SEND_HZ
 from camera_utils import AstraCamera
 from qr_detector  import QRDetector, draw_qr_overlay
 from box_detector import BoxDetector, draw_box_overlay
@@ -69,8 +70,10 @@ ALIGN_STABLE_FRAMES = 10
 # If the robot drifts more than this during the grip phase, print a warning.
 GRIP_DRIFT_WARN_PX = 20
 
-# Whether to show the live camera window (set False for headless Jetson deployment)
-SHOW_WINDOW = True
+# Whether to show the live camera window.
+# Auto-set by config.py: True on Windows, False on headless Jetson.
+# Override: SHOW_WINDOW=1 python vision_main.py ...
+SHOW_WINDOW = _DEFAULT_SHOW
 # ─────────────────────────────────────────────────────────────────────────────
 
 
@@ -93,7 +96,7 @@ class VisionPipeline:
     """
 
     def __init__(self, shelf_id: str, expected_sku: str,
-                 teensy_port: str = "COM3", dry_run: bool = False,
+                 teensy_port: str = TEENSY_PORT, dry_run: bool = False,
                  no_timeout: bool = False):
         """
         shelf_id:     expected content of the QR code on the shelf
@@ -118,11 +121,12 @@ class VisionPipeline:
         self._servo  = VisualServo()
         self._teensy = TeensyComm(port=teensy_port, dry_run=dry_run)
 
-        self._no_timeout  = no_timeout
-        self._state       = State.STAGE_1
-        self._stage_start = time.time()
-        self._grip_start  = None
-        self._align_count = 0   # consecutive aligned frames (Stage 3 stability gate)
+        self._no_timeout      = no_timeout
+        self._state           = State.STAGE_1
+        self._stage_start     = time.time()
+        self._grip_start      = None
+        self._align_count     = 0      # consecutive aligned frames (Stage 3 stability gate)
+        self._last_servo_send = 0.0    # timestamp of last SERVO command (rate limiter)
 
     def run(self):
         """
@@ -137,6 +141,11 @@ class VisionPipeline:
                 if not ok:
                     self._fail("Camera read failed")
                     break
+
+                # Skip bad frames (Astra Pro can glitch occasionally)
+                if rgb is None or rgb.ndim != 3 or rgb.shape[2] != 3:
+                    print(f"[VisionPipeline] Bad frame shape, skipping")
+                    continue
 
                 # Check stage timeout
                 if self._timed_out():
@@ -258,12 +267,20 @@ class VisionPipeline:
 
         # Stability gate: robot must hold alignment for ALIGN_STABLE_FRAMES consecutive
         # frames before we trust that it has fully stopped moving.
+        _servo_interval = 1.0 / SERVO_SEND_HZ
+        _now = time.time()
+
         if aligned:
             self._align_count += 1
-            self._teensy.send_servo(0.0)   # explicit STOP — don't let robot coast
+            # Send STOP once when we enter aligned state (not every frame)
+            if self._align_count == 1:
+                self._teensy.send_servo(0.0)
         else:
             self._align_count = 0
-            self._teensy.send_servo(correction)
+            # Rate-limit servo sends — no need to flood Teensy at camera fps
+            if _now - self._last_servo_send >= _servo_interval:
+                self._teensy.send_servo(correction)
+                self._last_servo_send = _now
 
         if SHOW_WINDOW:
             # Show stability progress bar in the overlay

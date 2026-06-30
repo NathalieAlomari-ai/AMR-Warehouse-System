@@ -28,11 +28,15 @@ from pyzbar import pyzbar
 QR_CLASS_ID = 1
 
 # Minimum detection confidence to attempt decoding
-MIN_CONFIDENCE = 0.30
+MIN_CONFIDENCE = 0.25   # lowered: catch QR at distance / low contrast
 
 # Expand the YOLO bounding box by this fraction before cropping.
-# Gives pyzbar more context pixels around the QR code.
-CROP_PADDING = 0.15
+# Larger = more context for pyzbar, better decode at distance.
+CROP_PADDING = 0.30
+
+# Minimum side length (pixels) of the crop sent to pyzbar.
+# If the YOLO box is small (far away), we upscale to this so pyzbar can read it.
+MIN_CROP_PX = 200
 
 # How many consecutive frames must return the same decoded value
 # before we consider it confirmed.
@@ -40,22 +44,49 @@ CONFIRM_THRESHOLD = 5
 
 
 def _enhance_for_decode(region: np.ndarray) -> np.ndarray:
-    """
-    Improve contrast and sharpness of a cropped QR region for pyzbar.
-    Works well in dim warehouse lighting.
-
-    Steps:
-      1. Convert to grayscale
-      2. CLAHE — adaptive histogram equalisation (handles uneven lighting)
-      3. Sharpening kernel — makes QR module edges crisper
-    """
-    gray    = cv2.cvtColor(region, cv2.COLOR_BGR2GRAY)
-    clahe   = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    """Grayscale + CLAHE + sharpen — helps in dim/uneven lighting."""
+    gray     = cv2.cvtColor(region, cv2.COLOR_BGR2GRAY)
+    clahe    = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     enhanced = clahe.apply(gray)
-    kernel  = np.array([[0, -1, 0],
-                        [-1, 5, -1],
-                        [0, -1, 0]])
+    kernel   = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
     return cv2.filter2D(enhanced, -1, kernel)
+
+
+def _try_decode_qr(crop: np.ndarray, full_frame: np.ndarray) -> str:
+    """
+    Multi-strategy QR decode. Returns the decoded string or '' on failure.
+
+    Tries in order (fastest/most reliable first):
+      1. OpenCV QRCodeDetector on crop   — robust for printed QR on paper
+      2. pyzbar on raw grayscale crop    — standard, no preprocessing
+      3. pyzbar on CLAHE-enhanced crop   — helps with dim/uneven lighting
+      4. OpenCV QRCodeDetector on full   — last resort (lets OpenCV find it)
+    """
+    _cv_qr = cv2.QRCodeDetector()
+
+    # Strategy 1 — OpenCV on crop
+    data, _, _ = _cv_qr.detectAndDecode(crop)
+    if data:
+        return data.strip()
+
+    # Strategy 2 — pyzbar on raw grayscale
+    gray    = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
+    objects = pyzbar.decode(gray)
+    if objects:
+        return objects[0].data.decode("utf-8").strip()
+
+    # Strategy 3 — pyzbar on CLAHE-enhanced
+    enhanced = _enhance_for_decode(crop)
+    objects  = pyzbar.decode(enhanced)
+    if objects:
+        return objects[0].data.decode("utf-8").strip()
+
+    # Strategy 4 — OpenCV on full frame (finds & decodes without our crop)
+    data, _, _ = _cv_qr.detectAndDecode(full_frame)
+    if data:
+        return data.strip()
+
+    return ""
 
 
 class QRDetector:
@@ -99,9 +130,18 @@ class QRDetector:
             .confirmed  — True if match held for CONFIRM_THRESHOLD frames
             .bbox       — (x1,y1,x2,y2) of the YOLO detection, or None
         """
-        results = self._model(frame, conf=MIN_CONFIDENCE,
-                              classes=[QR_CLASS_ID], verbose=False)
-        boxes   = results[0].boxes
+        # Guard: skip bad frames that would crash YOLO
+        if frame is None or frame.ndim != 3 or frame.shape[2] != 3:
+            return QRResult(found=False)
+
+        try:
+            results = self._model(frame, conf=MIN_CONFIDENCE,
+                                  classes=[QR_CLASS_ID], verbose=False)
+        except Exception as e:
+            print(f"[QRDetector] YOLO error (skipping frame): {e}")
+            return QRResult(found=False)
+
+        boxes = results[0].boxes
 
         if len(boxes) == 0:
             # No QR region found — reset streak
@@ -113,7 +153,7 @@ class QRDetector:
         x1, y1, x2, y2 = map(int, best.xyxy[0])
         h, w = frame.shape[:2]
 
-        # Expand bounding box with padding
+        # Expand bounding box with generous padding so pyzbar has full context
         pad_x = int((x2 - x1) * CROP_PADDING)
         pad_y = int((y2 - y1) * CROP_PADDING)
         x1c   = max(0, x1 - pad_x)
@@ -121,14 +161,17 @@ class QRDetector:
         x2c   = min(w, x2 + pad_x)
         y2c   = min(h, y2 + pad_y)
 
-        crop    = frame[y1c:y2c, x1c:x2c]
-        enhanced = _enhance_for_decode(crop)
+        crop = frame[y1c:y2c, x1c:x2c]
 
-        # Try pyzbar decode
-        decoded_text = ""
-        objects = pyzbar.decode(enhanced)
-        if objects:
-            decoded_text = objects[0].data.decode("utf-8").strip()
+        # Upscale small crops — decoders struggle with QR < 200px per side
+        ch, cw = crop.shape[:2]
+        if cw < MIN_CROP_PX or ch < MIN_CROP_PX:
+            scale = MIN_CROP_PX / min(cw, ch)
+            crop  = cv2.resize(crop, (int(cw * scale), int(ch * scale)),
+                               interpolation=cv2.INTER_CUBIC)
+
+        # Multi-strategy decode: OpenCV first, pyzbar fallbacks
+        decoded_text = _try_decode_qr(crop, frame)
 
         match = (decoded_text == self._expected_id) if decoded_text else False
 
