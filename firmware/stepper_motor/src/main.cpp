@@ -11,6 +11,14 @@
 #define PIN_DIR  27
 
 // =============================================================================
+//  VACUUM GRIPPER — relay module (active HIGH)
+//    ESP32 GPIO 18  →  Relay 1 (Pump)
+//    ESP32 GPIO 19  →  Relay 2 (Valve — solenoid, NC side routes pump→cup)
+// =============================================================================
+#define PIN_PUMP_RELAY  18
+#define PIN_VALVE_RELAY 19
+
+// =============================================================================
 //  LIMIT SWITCHES — NC (Normally Closed) wired to GND, INPUT_PULLUP
 //    Normal state : pin LOW  (switch closed, pulling to GND)
 //    Triggered    : pin HIGH (switch opened OR wire broken — failsafe)
@@ -38,19 +46,35 @@ constexpr long TRAVEL_STEPS = 1000000L;
 constexpr float MAX_SPEED_SPS    = 3200.0f;  // 8 mm/s  — normal operation
 constexpr float HOMING_SPEED_SPS =  400.0f;  // 1 mm/s  — slow creep during homing
 constexpr float ACCELERATION     = 2400.0f;  // 6 mm/s²
-
 constexpr long UN_PRESS_STEPS = 200L;  // back off after home switch contact
+
+// =============================================================================
+//  LIMIT-SWITCH DEBOUNCE
+// =============================================================================
+constexpr unsigned long SWITCH_BLIND_MS    = 500UL;  // ignore switches after motion starts
+constexpr unsigned long SWITCH_DEBOUNCE_MS =  20UL;  // double-read confirmation window
 
 // =============================================================================
 //  STATE MACHINE
 // =============================================================================
-enum class State { HOMING, EXTENDING, RETRACTING };
+enum class State { HOMING, EXTENDING, GRIPPING, RETRACTING, RELEASING };
 
 AccelStepper stepper(AccelStepper::DRIVER, PIN_STEP, PIN_DIR);
 
-static State state            = State::HOMING;
-static bool  cmdIssued        = false;
-static bool  homingUnpressing = false;  // false=searching, true=backing off
+static State         state            = State::HOMING;
+static bool          cmdIssued        = false;
+static bool          homingUnpressing = false;  // false=searching, true=backing off
+static unsigned long stateEnteredMs   = 0;      // millis() when GRIPPING/RELEASING began
+static bool          pumpOff          = false;  // sub-phase flag inside RELEASING
+static unsigned long motionStartedMs  = 0;      // millis() when EXTENDING/RETRACTING began
+
+// Returns true only if pin reads HIGH both now and after SWITCH_DEBOUNCE_MS.
+// delay() here is safe: stepper.stop() is called immediately after a true return.
+bool isLimitSwitchActive(int pin) {
+    if (digitalRead(pin) != HIGH) return false;
+    delay(SWITCH_DEBOUNCE_MS);
+    return (digitalRead(pin) == HIGH);
+}
 
 // =============================================================================
 //  SETUP
@@ -61,6 +85,11 @@ void setup() {
 
     pinMode(HOME_PIN, INPUT_PULLUP);
     pinMode(MAX_PIN,  INPUT_PULLUP);
+
+    pinMode(PIN_PUMP_RELAY,  OUTPUT);
+    pinMode(PIN_VALVE_RELAY, OUTPUT);
+    digitalWrite(PIN_PUMP_RELAY,  LOW);
+    digitalWrite(PIN_VALVE_RELAY, LOW);
 
     // Invert DIR so that positive steps = UP (away from motor)
     stepper.setPinsInverted(true, false, false);  // invert DIR so +steps = UP
@@ -92,7 +121,7 @@ void loop() {
         case State::HOMING:
             if (!homingUnpressing) {
                 // Phase 1: creeping down, waiting for home switch
-                if (digitalRead(HOME_PIN) == HIGH) {
+                if (isLimitSwitchActive(HOME_PIN)) {
                     stepper.stop();
                     stepper.setCurrentPosition(0);
                     stepper.moveTo(UN_PRESS_STEPS);
@@ -116,13 +145,29 @@ void loop() {
 
         case State::EXTENDING:
             if (!cmdIssued) {
+                motionStartedMs = millis();
                 Serial.println("Extending...");
                 stepper.moveTo(TRAVEL_STEPS);
                 cmdIssued = true;
             }
-            if (digitalRead(MAX_PIN) == HIGH) {
+            if (digitalRead(MAX_PIN) == HIGH && millis() - motionStartedMs <= SWITCH_BLIND_MS)
+                Serial.printf("[DBG] MAX_PIN spike rejected — %lums into blind window\n",
+                              millis() - motionStartedMs);
+            if (millis() - motionStartedMs > SWITCH_BLIND_MS && isLimitSwitchActive(MAX_PIN)) {
                 stepper.stop();
-                Serial.println("Max reached.");
+                Serial.println("Extended — gripping...");
+                digitalWrite(PIN_VALVE_RELAY, HIGH);
+                delay(200);  // allow solenoid valve to physically open
+                digitalWrite(PIN_PUMP_RELAY, HIGH);
+                stateEnteredMs = millis();
+                state = State::GRIPPING;
+            }
+            break;
+
+        case State::GRIPPING:
+            if (millis() - stateEnteredMs >= 1000UL) {
+                Serial.println("Grip confirmed — retracting...");
+                stepper.moveTo(-TRAVEL_STEPS);
                 state     = State::RETRACTING;
                 cmdIssued = false;
             }
@@ -130,14 +175,30 @@ void loop() {
 
         case State::RETRACTING:
             if (!cmdIssued) {
+                motionStartedMs = millis();
                 Serial.println("Retracting...");
                 stepper.moveTo(-TRAVEL_STEPS);
                 cmdIssued = true;
             }
-            if (digitalRead(HOME_PIN) == HIGH) {
+            if (digitalRead(HOME_PIN) == HIGH && millis() - motionStartedMs <= SWITCH_BLIND_MS)
+                Serial.printf("[DBG] HOME_PIN spike rejected — %lums into blind window\n",
+                              millis() - motionStartedMs);
+            if (millis() - motionStartedMs > SWITCH_BLIND_MS && isLimitSwitchActive(HOME_PIN)) {
                 stepper.stop();
                 stepper.setCurrentPosition(0);
-                Serial.println("Home reached.");
+                Serial.println("Retracted — releasing...");
+                digitalWrite(PIN_PUMP_RELAY, LOW);
+                stateEnteredMs = millis();
+                pumpOff = false;
+                state = State::RELEASING;
+            }
+            break;
+
+        case State::RELEASING:
+            if (!pumpOff && millis() - stateEnteredMs >= 500UL) {
+                digitalWrite(PIN_VALVE_RELAY, LOW);
+                Serial.println("Released — system vented.");
+                pumpOff   = true;
                 state     = State::EXTENDING;
                 cmdIssued = false;
             }
