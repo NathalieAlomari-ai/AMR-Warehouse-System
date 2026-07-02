@@ -13,7 +13,7 @@
   <xacro:property name="wheel_radius"   value="0.0625"/>
   <xacro:property name="wheel_width"    value="0.040"/>
   <xacro:property name="wheel_y"        value="0.325"/>   <!-- |Y| from centre → 650 mm total track width -->
-  <xacro:property name="wheel_x"        value="-0.100"/>  <!-- rear-biased axle position -->
+  <xacro:property name="wheel_x"        value="0.100"/>   <!-- axle 22 cm from rear → appears behind centre after 180° frame flip -->
 
   <xacro:property name="caster_radius"  value="0.025"/>
 
@@ -175,8 +175,8 @@
        ===================================================================== -->
   <xacro:caster name="front_left"  x_pos=" 0.260" y_pos=" 0.200"/>
   <xacro:caster name="front_right" x_pos=" 0.260" y_pos="-0.200"/>
-  <xacro:caster name="rear_left"   x_pos="-0.260" y_pos=" 0.200"/>
-  <xacro:caster name="rear_right"  x_pos="-0.260" y_pos="-0.200"/>
+  <xacro:caster name="rear_left"   x_pos=" 0.100" y_pos=" 0.200"/>
+  <xacro:caster name="rear_right"  x_pos=" 0.100" y_pos="-0.200"/>
 
   <!-- =====================================================================
        Scissor-lift platform
