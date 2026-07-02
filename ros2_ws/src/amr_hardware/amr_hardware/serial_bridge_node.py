@@ -62,6 +62,9 @@ class SerialBridgeNode(Node):
         # Two nodes broadcasting odom → base_footprint simultaneously will
         # cause a TF conflict that corrupts SLAM and Nav2 localisation.
         self.declare_parameter('publish_tf',       False)
+        # When True, negates the linear drive direction so that the LiDAR side
+        # becomes the physical front.  Does NOT affect angular velocity or IMU.
+        self.declare_parameter('flip_drive_direction', False)
 
         port              = self.get_parameter('port').get_parameter_value().string_value
         baudrate          = self.get_parameter('baudrate').get_parameter_value().integer_value
@@ -73,6 +76,7 @@ class SerialBridgeNode(Node):
         self._max_angular_accel = self.get_parameter('max_angular_accel').get_parameter_value().double_value
         self._ticks_per_rev    = self.get_parameter('ticks_per_rev').get_parameter_value().integer_value
         self._publish_tf       = self.get_parameter('publish_tf').get_parameter_value().bool_value
+        self._flip_drive       = self.get_parameter('flip_drive_direction').get_parameter_value().bool_value
 
         # ── Serial ───────────────────────────────────────────────────────────
         self._ser = None
@@ -169,6 +173,8 @@ class SerialBridgeNode(Node):
         if self._ser is None or not self._ser.is_open:
             return
         rpm_factor = 60.0 / (2.0 * math.pi * self._wheel_radius)
+        if self._flip_drive:
+            linear = -linear  # flip forward direction; angular convention unchanged
         l_rpm = (linear - angular * self._wheel_base / 2.0) * rpm_factor
         r_rpm = (linear + angular * self._wheel_base / 2.0) * rpm_factor
         packet = f'V {l_rpm:.2f} {r_rpm:.2f}\n'
@@ -250,6 +256,8 @@ class SerialBridgeNode(Node):
         # This keeps /wheel/odometry a clean, independent source for the EKF.
         vx        = (v_left + v_right) / 2.0
         omega_enc = (v_right - v_left) / self._wheel_base
+        if self._flip_drive:
+            vx = -vx  # LiDAR-first movement reports negative RPMs; flip to positive
 
         mid_yaw    = self._yaw + omega_enc * dt / 2.0   # midpoint integration
         self._x   += vx * math.cos(mid_yaw) * dt

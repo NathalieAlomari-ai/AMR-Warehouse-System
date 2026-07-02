@@ -51,6 +51,7 @@ def generate_launch_description():
             'base_frame':        'base_footprint',
             'ticks_per_rev':     2700,
             'publish_tf':        True,    # serial_bridge owns odom → base_footprint TF
+            'flip_drive_direction': True, # LiDAR is physical front; motors are at back
         }],
     )
 
