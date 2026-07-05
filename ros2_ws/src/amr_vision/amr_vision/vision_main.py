@@ -41,13 +41,14 @@ from enum import Enum, auto
 from pathlib import Path
 from ultralytics import YOLO
 
-from config       import TEENSY_PORT, SHOW_WINDOW as _DEFAULT_SHOW, SERVO_SEND_HZ
-from camera_utils import AstraCamera
-from qr_detector  import QRDetector, draw_qr_overlay
-from box_detector import BoxDetector, draw_box_overlay
-from visual_servo import VisualServo, draw_servo_overlay, ALIGN_EXIT_PX
-from depth_utils  import DepthSampler
-from teensy_comm  import TeensyComm
+from config          import TEENSY_PORT, SHOW_WINDOW as _DEFAULT_SHOW, SERVO_SEND_HZ
+from camera_utils    import AstraCamera
+from qr_detector     import QRDetector, draw_qr_overlay
+from box_detector    import BoxDetector, draw_box_overlay
+from visual_servo    import VisualServo, draw_servo_overlay, ALIGN_EXIT_PX
+from depth_utils     import DepthSampler
+from teensy_comm     import TeensyComm
+from mqtt_publisher  import AMRMqttPublisher
 
 # ── CONFIG ────────────────────────────────────────────────────────────────────
 MODEL_PATH = Path(__file__).parent.parent / "models" / "best.pt"
@@ -97,7 +98,7 @@ class VisionPipeline:
 
     def __init__(self, shelf_id: str, expected_sku: str,
                  teensy_port: str = TEENSY_PORT, dry_run: bool = False,
-                 no_timeout: bool = False):
+                 no_timeout: bool = False, mqtt_host: str = "localhost"):
         """
         shelf_id:     expected content of the QR code on the shelf
         expected_sku: expected barcode value on the target box
@@ -120,6 +121,9 @@ class VisionPipeline:
         self._box    = BoxDetector(self._model)  # coarse servo anchor (Stage 3)
         self._servo  = VisualServo()
         self._teensy = TeensyComm(port=teensy_port, dry_run=dry_run)
+        self._mqtt   = AMRMqttPublisher(broker_host=mqtt_host,
+                                        shelf_id=shelf_id,
+                                        dry_run=dry_run)
 
         self._no_timeout      = no_timeout
         self._state           = State.STAGE_1
@@ -133,6 +137,9 @@ class VisionPipeline:
         Main loop. Opens camera, processes frames, transitions states.
         Blocks until the pick is complete (DONE) or fails (ERROR).
         """
+        self._mqtt.publish_status("RUNNING")
+        self._mqtt.publish_stage(self._state.name)
+
         with AstraCamera() as cam:
             print(f"[VisionPipeline] Camera open. Starting in state: {self._state.name}")
 
@@ -176,6 +183,7 @@ class VisionPipeline:
         if SHOW_WINDOW:
             cv2.destroyAllWindows()
         self._teensy.close()
+        self._mqtt.close()
 
         print(f"[VisionPipeline] Final state: {self._state.name}")
         return self._state == State.DONE
@@ -190,7 +198,8 @@ class VisionPipeline:
 
         if result.confirmed:
             print(f"[Stage 1] QR confirmed: '{result.decoded}' -> signalling lift UP")
-            self._teensy.send_lift_up()   # navigation team raises scissor lift
+            self._teensy.send_lift_up()
+            self._mqtt.publish_shelf_confirmed(result.decoded)
             self._transition(State.STAGE_2)
 
     def _run_stage2(self, frame, depth):
@@ -213,6 +222,7 @@ class VisionPipeline:
                 print(f"[Stage 2] QR confirmed: '{result.decoded}'  "
                       f"distance: {distance_mm} mm")
                 self._teensy.send_approach(distance_mm)
+                self._mqtt.publish_sku_confirmed(result.decoded, distance_mm)
                 self._transition(State.STAGE_3)
             else:
                 print("[Stage 2] QR confirmed, waiting for valid depth...")
@@ -289,6 +299,7 @@ class VisionPipeline:
             cv2.putText(frame, bar_text, (10, 90),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.65, bar_col, 2)
 
+        self._mqtt.publish_servo(offset_px, correction, aligned)
         print(f"[Stage 3] {mode}  offset={offset_px:+d}px  "
               f"correction={correction:+.4f}  stable={self._align_count}/{ALIGN_STABLE_FRAMES}")
 
@@ -306,7 +317,8 @@ class VisionPipeline:
         if self._grip_start is None:
             self._grip_start = time.time()
             self._teensy.send_grip()
-            self._teensy.send_servo(0.0)   # hold position — no lateral movement
+            self._teensy.send_servo(0.0)
+            self._mqtt.publish_grip()
             print("[Gripping] Suction cup command sent. Tracking center...")
 
         # Track QR position during grip to detect any robot drift
@@ -353,6 +365,7 @@ class VisionPipeline:
         print(f"[VisionPipeline] {self._state.name} -> {new_state.name}")
         self._state       = new_state
         self._stage_start = time.time()
+        self._mqtt.publish_stage(new_state.name)
 
     def _timed_out(self) -> bool:
         if self._no_timeout:
@@ -365,6 +378,7 @@ class VisionPipeline:
     def _fail(self, reason: str):
         print(f"[VisionPipeline] ERROR — {reason}")
         self._state = State.ERROR
+        self._mqtt.publish_error(reason)
 
 
 # ── Entry point ────────────────────────────────────────────────────────────────
@@ -377,6 +391,8 @@ if __name__ == "__main__":
                         help="Skip serial communication (test without robot)")
     parser.add_argument("--no-timeout", action="store_true",
                         help="Disable stage timeouts (useful for manual testing)")
+    parser.add_argument("--mqtt-host", default="localhost",
+                        help="MQTT broker IP or hostname (default: localhost)")
     args = parser.parse_args()
 
     if args.no_timeout:
@@ -388,6 +404,7 @@ if __name__ == "__main__":
         teensy_port  = args.port,
         dry_run      = args.dry_run,
         no_timeout   = args.no_timeout,
+        mqtt_host    = args.mqtt_host,
     )
 
     success = pipeline.run()
