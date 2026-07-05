@@ -360,8 +360,12 @@ local_costmap:
           inf_is_valid: false
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        cost_scaling_factor: 3.0
-        inflation_radius: 0.55    # > circumscribed radius (≈ 0.42 m) for safety margin
+        # Steeper falloff (was 3.0) + tighter radius (was 0.55) — 0.55 added ~13cm
+        # of high-cost buffer beyond the ~0.42m circumscribed radius on every side,
+        # which ate ~26cm of usable width in narrow aisles and made DWB refuse to
+        # enter rows it could actually fit through, backing away instead.
+        cost_scaling_factor: 6.0
+        inflation_radius: 0.45    # ~ circumscribed radius (0.42 m) + small margin
       always_send_full_costmap: true
 
 # ── Global Costmap (full warehouse map + live obstacle layer) ─────────────────
@@ -400,6 +404,6 @@ global_costmap:
           inf_is_valid: false
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        cost_scaling_factor: 3.0
-        inflation_radius: 0.55
+        cost_scaling_factor: 6.0
+        inflation_radius: 0.45
       always_send_full_costmap: true
