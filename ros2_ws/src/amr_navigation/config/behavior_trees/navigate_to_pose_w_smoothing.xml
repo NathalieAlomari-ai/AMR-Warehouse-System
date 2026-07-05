@@ -19,9 +19,11 @@
             <ClearEntireCostmap name="ClearGlobalCostmap-Context" service_name="global_costmap/clear_entirely_global_costmap"/>
           </RecoveryNode>
         </RateController>
-        <SmoothPath unsmoothed_path="{path}" smoothed_path="{path}"
-                    smoother_id="simple_smoother" max_smoothing_duration="3.0"
-                    check_for_collisions="true"/>
+        <RateController hz="1.0">
+          <SmoothPath unsmoothed_path="{path}" smoothed_path="{path}"
+                      smoother_id="simple_smoother" max_smoothing_duration="3.0"
+                      check_for_collisions="true"/>
+        </RateController>
         <RecoveryNode number_of_retries="1" name="FollowPath">
           <FollowPath path="{path}" controller_id="FollowPath"/>
           <ClearEntireCostmap name="ClearLocalCostmap-Context" service_name="local_costmap/clear_entirely_local_costmap"/>
