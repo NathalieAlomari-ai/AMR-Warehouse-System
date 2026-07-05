@@ -22,7 +22,7 @@
         <RateController hz="1.0">
           <SmoothPath unsmoothed_path="{path}" smoothed_path="{path}"
                       smoother_id="simple_smoother" max_smoothing_duration="3.0"
-                      check_for_collisions="true"/>
+                      check_for_collisions="false"/>
         </RateController>
         <RecoveryNode number_of_retries="1" name="FollowPath">
           <FollowPath path="{path}" controller_id="FollowPath"/>
