@@ -201,7 +201,10 @@ controller_server:
       plugin: "dwb_core::DWBLocalPlanner"
       debug_trajectory_details: true
       # Velocity limits — conservative for indoor warehouse safety
-      min_vel_x: 0.0
+      # min_vel_x negative so DWB can actually plan reverse trajectories
+      # (needed to back out of dead ends / tight spots blocked by an obstacle;
+      # velocity_smoother already allows -0.15 m/s, this was the only blocker).
+      min_vel_x: -0.1
       min_vel_y: 0.0
       max_vel_x: 0.15          # m/s
       max_vel_y: 0.0            # non-holonomic
