@@ -35,9 +35,10 @@ class WaypointNavigator(Node):
         self.get_logger().info(
             f'Sending robot to "{name}" (x={x:.3f}, y={y:.3f}, yaw={yaw:.3f})')
 
-        if not self._client.wait_for_server(timeout_sec=5.0):
+        self.get_logger().info('Waiting for navigate_to_pose action server...')
+        if not self._client.wait_for_server(timeout_sec=30.0):
             self.get_logger().error(
-                'navigate_to_pose action server not available. Is the robot running?')
+                'navigate_to_pose action server not available after 30s. Is the robot running?')
             return False
 
         goal = NavigateToPose.Goal()

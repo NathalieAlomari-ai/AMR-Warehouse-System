@@ -44,6 +44,7 @@ def generate_launch_description():
 
     params_file      = os.path.join(nav_share, 'config', 'nav2_params.yaml')
     twist_mux_config = os.path.join(nav_share, 'config', 'twist_mux.yaml')
+    bt_xml           = os.path.join(nav_share, 'config', 'behavior_trees', 'navigate_to_pose_w_smoothing.xml')
 
     # ── Launch arguments ───────────────────────────────────────────────────
     use_sim_time    = LaunchConfiguration('use_sim_time')
@@ -76,6 +77,7 @@ def generate_launch_description():
             param_rewrites={
                 'use_sim_time': use_sim_time,
                 'autostart': autostart,
+                'default_nav_to_pose_bt_xml': bt_xml,
             },
             convert_types=True,
         ),
