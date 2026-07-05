@@ -12,6 +12,7 @@ install(
   PROGRAMS
     scripts/waypoint_saver.py
     scripts/waypoint_navigator.py
+    scripts/mission_runner.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

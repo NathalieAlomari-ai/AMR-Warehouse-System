@@ -304,7 +304,7 @@ waypoint_follower:
     wait_at_waypoint:
       plugin: "nav2_waypoint_follower::WaitAtWaypoint"
       enabled: true
-      waypoint_pause_duration: 200
+      waypoint_pause_duration: 3000   # ~3s pause per stop to simulate pick-up/drop-off
 
 # ── Velocity Smoother ─────────────────────────────────────────────────────────
 # In navigation.launch.py this node is remapped:
