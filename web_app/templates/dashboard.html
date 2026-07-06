@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Navixa — Operator Dashboard</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script>document.documentElement.dataset.theme=localStorage.getItem('navixa-theme')||'dark';</script>
+  <script src="https://code.iconify.design/3/3.1.0/iconify.min.js"></script>
+</head>
+<body>
+
+<div class="bg-grid" aria-hidden="true"></div>
+
+<div class="dashboard-layout">
+
+  <!-- ── Top Bar ──────────────────────────────────────────────────────────── -->
+  <header class="dash-topbar" role="banner">
+
+    <a href="{{ url_for('index') }}" class="dash-logo" aria-label="Navixa home">
+      <svg class="dash-logo-icon" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <rect x="1" y="1" width="30" height="30" rx="6" stroke="#FF6B00" stroke-width="1.5" fill="rgba(10,10,10,0.7)"/>
+        <line x1="9" y1="7" x2="9" y2="25" stroke="white" stroke-width="3.5" stroke-linecap="round"/>
+        <line x1="23" y1="7" x2="23" y2="25" stroke="white" stroke-width="3.5" stroke-linecap="round"/>
+        <line x1="9" y1="7" x2="23" y2="25" stroke="white" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="9"  cy="8"  r="2.2" fill="#0A0A0A" stroke="#FF6B00" stroke-width="1.2"/>
+        <circle cx="9"  cy="8"  r="1"   fill="#FF6B00"/>
+        <circle cx="16" cy="16" r="2.2" fill="#0A0A0A" stroke="#FF6B00" stroke-width="1.2"/>
+        <circle cx="16" cy="16" r="1"   fill="#FF6B00"/>
+        <circle cx="23" cy="24" r="2.2" fill="#0A0A0A" stroke="#FF6B00" stroke-width="1.2"/>
+        <circle cx="23" cy="24" r="1"   fill="#FF6B00"/>
+      </svg>
+      Navi<span>xa</span>
+    </a>
+
+    <div class="dash-topbar-center">
+      <div class="connection-indicator offline" id="connectionBadge" role="status" aria-live="polite">
+        <span class="connection-dot" aria-hidden="true"></span>
+        <span id="connectionText">Connecting…</span>
+      </div>
+      <span class="last-update" id="lastUpdate" aria-live="polite">—</span>
+    </div>
+
+    <div class="dash-topbar-right">
+      <!-- THEME TOGGLE -->
+      <button class="luma-theme-btn" id="themeToggle" aria-label="Toggle light/dark mode">
+        <svg class="theme-icon-sun" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" width="15" height="15" aria-hidden="true">
+          <circle cx="10" cy="10" r="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="10" y1="16" x2="10" y2="18"/>
+          <line x1="2" y1="10" x2="4" y2="10"/><line x1="16" y1="10" x2="18" y2="10"/>
+          <line x1="4.2" y1="4.2" x2="5.6" y2="5.6"/><line x1="14.4" y1="14.4" x2="15.8" y2="15.8"/>
+          <line x1="4.2" y1="15.8" x2="5.6" y2="14.4"/><line x1="14.4" y1="5.6" x2="15.8" y2="4.2"/>
+        </svg>
+        <svg class="theme-icon-moon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" width="15" height="15" aria-hidden="true">
+          <path d="M17 12A7 7 0 018 3a7 7 0 100 14 7 7 0 009-5z"/>
+        </svg>
+      </button>
+      <!-- EMERGENCY STOP -->
+      <button class="emergency-stop-btn" id="emergencyStopBtn"
+              aria-label="Emergency stop — halt robot immediately"
+              onclick="emergencyStop()">
+        <svg class="stop-icon-svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <rect x="4" y="4" width="16" height="16" rx="3"/>
+        </svg>
+        <span class="stop-label">STOP</span>
+      </button>
+
+      <a href="{{ url_for('logout') }}" class="logout-btn" aria-label="Log out">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" aria-hidden="true">
+          <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+          <polyline points="16 17 21 12 16 7"/>
+          <line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+        Logout
+      </a>
+    </div>
+  </header>
+
+  <!-- ── Dashboard Grid ───────────────────────────────────────────────────── -->
+  <main class="dash-body" role="main">
+
+    <!-- ╔══════════════════════════════╗
+         ║  1. ROBOT STATUS             ║
+         ╚══════════════════════════════╝ -->
+    <section class="status-panel" aria-labelledby="status-panel-title">
+
+      <div class="panel-header">
+        <h2 class="panel-title" id="status-panel-title">
+          <span class="panel-icon" aria-hidden="true">
+            <span class="iconify" data-icon="fluent:bot-24-filled" data-width="20" data-height="20" style="color:var(--orange)"></span>
+          </span>
+          Robot Status
+        </h2>
+        <div class="badge badge-idle" id="statusBadge" role="status" aria-live="polite">
+          <span class="badge-dot" aria-hidden="true"></span>
+          <span id="statusBadgeText">IDLE</span>
+        </div>
+      </div>
+
+      <div class="robot-state-display idle" id="stateDisplay">
+        <div class="robot-icon" id="robotIcon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="4" y="4" width="16" height="16" rx="3"/>
+            <rect x="9" y="9" width="6" height="6" rx="1"/>
+            <line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/>
+            <line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/>
+            <line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/>
+            <line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/>
+          </svg>
+        </div>
+        <div class="robot-state-text">
+          <div class="robot-state-label">Current State</div>
+          <div class="robot-state-value idle" id="robotStateValue">IDLE</div>
+        </div>
+      </div>
+
+      <div class="robot-meta">
+        <div class="robot-meta-item">
+          <div class="robot-meta-label">Current Order</div>
+          <div class="robot-meta-value" id="currentOrderDisplay">—</div>
+        </div>
+        <div class="robot-meta-item">
+          <div class="robot-meta-label">Battery</div>
+          <div class="robot-meta-value" id="batteryDisplay">—</div>
+          <div class="battery-bar" aria-hidden="true">
+            <div class="battery-fill" id="batteryFill" style="width:0%"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ╔══════════════════════════════╗
+         ║  2. VISION PIPELINE          ║
+         ╚══════════════════════════════╝ -->
+    <section class="pipeline-panel" aria-labelledby="pipeline-panel-title">
+
+      <div class="panel-header">
+        <h2 class="panel-title" id="pipeline-panel-title">
+          <span class="panel-icon" aria-hidden="true">
+            <span class="iconify" data-icon="fluent:eye-24-filled" data-width="20" data-height="20" style="color:var(--orange)"></span>
+          </span>
+          Vision Pipeline
+        </h2>
+        <span class="section-label" style="margin:0" id="pipelineStageLabel">Standby</span>
+      </div>
+
+      <div class="pipeline-stages" role="list" aria-label="Vision pipeline stages">
+
+        <div class="pipeline-stage" id="stage-IDLE" role="listitem" data-stage="IDLE">
+          <div class="stage-indicator" aria-hidden="true"></div>
+          <span class="stage-icon-svg" aria-hidden="true">
+            <span class="iconify" data-icon="fluent:timer-24-regular" data-width="16" data-height="16"></span>
+          </span>
+          <span class="stage-name">Standby</span>
+          <span class="stage-check" aria-hidden="true">
+            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="2,7 6,11 12,3"/></svg>
+          </span>
+        </div>
+
+        <div class="pipeline-stage" id="stage-NAVIGATING" role="listitem" data-stage="NAVIGATING">
+          <div class="stage-indicator" aria-hidden="true"></div>
+          <span class="stage-icon-svg" aria-hidden="true">
+            <span class="iconify" data-icon="fluent:navigation-24-filled" data-width="16" data-height="16"></span>
+          </span>
+          <span class="stage-name">Navigating to shelf</span>
+          <span class="stage-check" aria-hidden="true">
+            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="2,7 6,11 12,3"/></svg>
+          </span>
+        </div>
+
+        <div class="pipeline-stage" id="stage-SCANNING QR" role="listitem" data-stage="SCANNING QR">
+          <div class="stage-indicator" aria-hidden="true"></div>
+          <span class="stage-icon-svg" aria-hidden="true">
+            <span class="iconify" data-icon="fluent:qr-code-24-regular" data-width="16" data-height="16"></span>
+          </span>
+          <span class="stage-name">Scanning QR code</span>
+          <span class="stage-check" aria-hidden="true">
+            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="2,7 6,11 12,3"/></svg>
+          </span>
+        </div>
+
+        <div class="pipeline-stage" id="stage-DETECTING BOX" role="listitem" data-stage="DETECTING BOX">
+          <div class="stage-indicator" aria-hidden="true"></div>
+          <span class="stage-icon-svg" aria-hidden="true">
+            <span class="iconify" data-icon="fluent:eye-24-regular" data-width="16" data-height="16"></span>
+          </span>
+          <span class="stage-name">AI box detection</span>
+          <span class="stage-check" aria-hidden="true">
+            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="2,7 6,11 12,3"/></svg>
+          </span>
+        </div>
+
+        <div class="pipeline-stage" id="stage-ALIGNING" role="listitem" data-stage="ALIGNING">
+          <div class="stage-indicator" aria-hidden="true"></div>
+          <span class="stage-icon-svg" aria-hidden="true">
+            <span class="iconify" data-icon="fluent:target-arrow-24-regular" data-width="16" data-height="16"></span>
+          </span>
+          <span class="stage-name">Aligning gripper</span>
+          <span class="stage-check" aria-hidden="true">
+            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="2,7 6,11 12,3"/></svg>
+          </span>
+        </div>
+
+        <div class="pipeline-stage" id="stage-LIFTING" role="listitem" data-stage="LIFTING">
+          <div class="stage-indicator" aria-hidden="true"></div>
+          <span class="stage-icon-svg" aria-hidden="true">
+            <span class="iconify" data-icon="fluent:arrow-upload-24-regular" data-width="16" data-height="16"></span>
+          </span>
+          <span class="stage-name">Suction pickup</span>
+          <span class="stage-check" aria-hidden="true">
+            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="2,7 6,11 12,3"/></svg>
+          </span>
+        </div>
+
+        <div class="pipeline-stage" id="stage-DELIVERING" role="listitem" data-stage="DELIVERING">
+          <div class="stage-indicator" aria-hidden="true"></div>
+          <span class="stage-icon-svg" aria-hidden="true">
+            <span class="iconify" data-icon="fluent:vehicle-truck-24-regular" data-width="16" data-height="16"></span>
+          </span>
+          <span class="stage-name">En route to drop zone</span>
+          <span class="stage-check" aria-hidden="true">
+            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="2,7 6,11 12,3"/></svg>
+          </span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ╔══════════════════════════════╗
+         ║  3. PLACE ORDER              ║
+         ╚══════════════════════════════╝ -->
+    <section class="order-panel" aria-labelledby="order-panel-title">
+
+      <div class="panel-header">
+        <h2 class="panel-title" id="order-panel-title">
+          <span class="panel-icon" aria-hidden="true">
+            <span class="iconify" data-icon="fluent:clipboard-task-list-ltr-24-filled" data-width="20" data-height="20" style="color:var(--orange)"></span>
+          </span>
+          Place Order
+        </h2>
+      </div>
+
+      <div class="order-warning" id="orderWarning" role="alert" aria-live="polite">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true">
+          <path d="M8 1L15 14H1L8 1z"/>
+          <line x1="8" y1="6" x2="8" y2="10"/>
+          <circle cx="8" cy="12.5" r="0.6" fill="currentColor" stroke="none"/>
+        </svg>
+        An order is currently active. Wait for it to complete.
+      </div>
+
+      <div class="order-success-toast" id="orderSuccessToast" role="status" aria-live="polite"></div>
+
+      <div class="order-form">
+        <div class="form-group">
+          <label class="form-label" for="shelfInput">Shelf ID</label>
+          <input class="form-input" type="text" id="shelfInput"
+                 placeholder="e.g. SHELF_A07" maxlength="20"
+                 autocomplete="off" aria-describedby="shelfHint">
+          <span id="shelfHint" style="font-size:var(--text-xs);color:var(--white-30);margin-top:4px;display:block">
+            Format: SHELF_A07 · auto-uppercased
+          </span>
+        </div>
+
+        <button class="btn btn-primary order-submit-btn btn-ripple"
+                id="submitOrderBtn" onclick="submitOrder()"
+                aria-label="Submit pick order">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" aria-hidden="true">
+            <line x1="22" y1="2" x2="11" y2="13"/>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+          Send Order
+        </button>
+      </div>
+
+    </section>
+
+    <!-- ╔══════════════════════════════╗
+         ║  4. LIVE QUEUE               ║
+         ╚══════════════════════════════╝ -->
+    <section class="queue-panel" aria-labelledby="queue-panel-title">
+
+      <div class="panel-header">
+        <h2 class="panel-title" id="queue-panel-title">
+          <span class="panel-icon" aria-hidden="true">
+            <span class="iconify" data-icon="fluent:layer-diagonal-24-filled" data-width="20" data-height="20" style="color:var(--orange)"></span>
+          </span>
+          Live Queue
+        </h2>
+        <span class="badge badge-idle" id="queueCount" aria-live="polite">0 orders</span>
+      </div>
+
+      <div id="queueList" aria-live="polite" aria-label="Active order queue">
+        <div class="queue-empty" id="queueEmpty">No active orders</div>
+      </div>
+
+    </section>
+
+    <!-- ╔══════════════════════════════╗
+         ║  5. ORDER HISTORY            ║
+         ╚══════════════════════════════╝ -->
+    <section class="history-panel" aria-labelledby="history-panel-title">
+
+      <div class="panel-header">
+        <h2 class="panel-title" id="history-panel-title">
+          <span class="panel-icon" aria-hidden="true">
+            <span class="iconify" data-icon="fluent:clock-24-filled" data-width="20" data-height="20" style="color:var(--orange)"></span>
+          </span>
+          Order History
+        </h2>
+        <span class="section-label" style="margin:0" id="historyCount">0 completed</span>
+      </div>
+
+      <div class="table-wrapper">
+        <table aria-label="Order history log">
+          <thead>
+            <tr>
+              <th scope="col">Order ID</th>
+              <th scope="col">Shelf</th>
+              <th scope="col">Status</th>
+              <th scope="col">Placed</th>
+              <th scope="col">Completed</th>
+            </tr>
+          </thead>
+          <tbody id="historyBody">
+            <tr>
+              <td colspan="5" class="history-empty">No completed orders yet</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </section>
+
+  </main>
+</div>
+
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

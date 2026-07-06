@@ -13,6 +13,12 @@ firmware/.pio/
 
 # OS
 .DS_Store
+Thumbs.db
+
+# Virtual environments (anywhere in the repo)
+.venv/
+venv/
+env/
 
 # Datasets — large files, never commit
 datasets/
