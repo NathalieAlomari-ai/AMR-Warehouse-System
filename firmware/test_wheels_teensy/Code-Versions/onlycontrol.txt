@@ -1,0 +1,104 @@
+// =============================================================================
+// test_wheels_teensy — Stage 1: Basic BTS7960 Motor Direction Test
+// Hardware : Teensy 4.1 (3.3V logic) + Double BTS7960 43A H-bridge
+// Motor    : 775 DC 24V Planetary Gear Motor (120 RPM)
+// Power    : 24V bench supply (3A current limit recommended for first test)
+//
+// WIRING MAP
+// ----------
+//  BTS7960 VCC  → Teensy 3.3V   (NOT 5V — Teensy 4.1 pins are not 5V tolerant)
+//  BTS7960 GND  → Teensy GND + 24V supply −  (common ground is mandatory)
+//  BTS7960 RPWM → Teensy Pin 2  (PWM, forward direction)
+//  BTS7960 LPWM → Teensy Pin 3  (PWM, reverse direction)
+//  BTS7960 R_EN → Teensy Pin 4  (active-HIGH enable for forward half-bridge)
+//  BTS7960 L_EN → Teensy Pin 5  (active-HIGH enable for reverse half-bridge)
+//  BTS7960 B+   → 24V supply +
+//  BTS7960 B−   → 24V supply −  (shared GND rail)
+//  BTS7960 M+   → Motor terminal 1
+//  BTS7960 M−   → Motor terminal 2  (swap M+/M− if forward direction is inverted)
+//
+// SAFETY NOTES
+// ------------
+//  • RPWM and LPWM must NEVER be driven HIGH simultaneously (shoot-through).
+//  • BTS7960 VCC must be 3.3V so signal thresholds match Teensy's output levels.
+//  • PWM frequency is set to 20 kHz to eliminate audible motor whine.
+//  • Adjust TEST_PWM lower (e.g. 80) for a gentler first-run test.
+// =============================================================================
+
+#include <Arduino.h>
+
+// --- Pin definitions ---------------------------------------------------------
+static constexpr int PIN_RPWM = 2;   // Forward PWM
+static constexpr int PIN_LPWM = 3;   // Reverse PWM
+static constexpr int PIN_R_EN = 4;   // Forward half-bridge enable
+static constexpr int PIN_L_EN = 5;   // Reverse half-bridge enable
+
+// --- Test parameters ---------------------------------------------------------
+static constexpr int   TEST_PWM     = 128;   // Duty cycle for the test (0–255, ~50%)
+static constexpr int   PWM_FREQ_HZ  = 20000; // 20 kHz — above audible range
+static constexpr unsigned long RUN_MS  = 2000; // Duration of each run phase (ms)
+static constexpr unsigned long STOP_MS = 1000; // Duration of each stop phase (ms)
+
+// --- Helper ------------------------------------------------------------------
+// setMotor: +1..+255 = forward, -1..-255 = reverse, 0 = coast stop.
+// Guarantees RPWM and LPWM are never asserted simultaneously.
+void setMotor(int speed) {
+    if (speed > 0) {
+        analogWrite(PIN_LPWM, 0);
+        analogWrite(PIN_RPWM, constrain(speed, 0, 255));
+    } else if (speed < 0) {
+        analogWrite(PIN_RPWM, 0);
+        analogWrite(PIN_LPWM, constrain(-speed, 0, 255));
+    } else {
+        analogWrite(PIN_RPWM, 0);
+        analogWrite(PIN_LPWM, 0);
+    }
+}
+
+// =============================================================================
+void setup() {
+    Serial.begin(115200);
+    Serial.println("BTS7960 Stage 1 test — starting.");
+
+    // PWM frequency must be set before pinMode so the timer is configured first
+    analogWriteFrequency(PIN_RPWM, PWM_FREQ_HZ);
+    analogWriteFrequency(PIN_LPWM, PWM_FREQ_HZ);
+
+    pinMode(PIN_RPWM, OUTPUT);
+    pinMode(PIN_LPWM, OUTPUT);
+    pinMode(PIN_R_EN, OUTPUT);
+    pinMode(PIN_L_EN, OUTPUT);
+
+    // Start with motor stopped, then enable both half-bridges
+    setMotor(0);
+    digitalWrite(PIN_R_EN, HIGH);
+    digitalWrite(PIN_L_EN, HIGH);
+
+    Serial.println("Driver enabled. Loop starting in 1 s...");
+    delay(1000);
+}
+
+// =============================================================================
+void loop() {
+    // --- Forward ---
+    Serial.print("Forward  PWM=");
+    Serial.println(TEST_PWM);
+    setMotor(TEST_PWM);
+    delay(RUN_MS);
+
+    // --- Stop ---
+    Serial.println("Stop");
+    setMotor(0);
+    delay(STOP_MS);
+
+    // --- Reverse ---
+    Serial.print("Reverse  PWM=");
+    Serial.println(-TEST_PWM);
+    setMotor(-TEST_PWM);
+    delay(RUN_MS);
+
+    // --- Stop ---
+    Serial.println("Stop");
+    setMotor(0);
+    delay(STOP_MS);
+}
