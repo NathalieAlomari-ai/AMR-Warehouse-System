@@ -1,0 +1,22 @@
+.DS_Store
+.claude/
+
+# Private skills (not for public distribution)
+client-effort-estimate/
+content-pipeline/
+deploy-and-verify/
+rag-debug/
+resilience-audit/
+supabase-stripe-security/
+video-gen-prompting/
+
+# insurgent-campaign: internal workflow only, never published
+insurgent-campaign/post.md
+insurgent-campaign/.agentic-qe/
+insurgent-campaign/skills/insurgent-campaign/REFACTOR-NOTES.md
+insurgent-campaign/The_Organic_Playbook.mp4
+insurgent-campaign/*.mp4
+insurgent-campaign/*.mov
+
+# Landing page — deployed separately at insurgent.bencium.io, kept local only
+insurgent-campaign/index.html
