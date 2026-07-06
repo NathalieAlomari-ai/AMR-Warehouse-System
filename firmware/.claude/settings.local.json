@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\zzz10\\\\amr_warehouse_system\\\\AMR-Warehouse-System\\\\firmware\" -Recurse -Force)",
+      "Bash(Select-Object FullName)",
+      "Bash(Sort-Object FullName)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\zzz10\\\\amr_warehouse_system\\\\AMR-Warehouse-System\\\\firmware\" -Recurse -Force | ForEach-Object { $_.FullName })",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\zzz10\\\\amr_warehouse_system\\\\AMR-Warehouse-System\" -Recurse -Force | Where-Object { $_.Extension -match '^\\\\.\\(ino|cpp|h\\)$' } | Select-Object FullName)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\zzz10\\\\amr_warehouse_system\\\\AMR-Warehouse-System\\\\docs\" -Recurse -Force | ForEach-Object { $_.FullName })",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\zzz10\\\\amr_warehouse_system\\\\AMR-Warehouse-System\\\\ros2_ws\" -Recurse -Force | Where-Object { $_.Extension -match '^\\\\.\\(py|cpp|h\\)$' } | Select-Object FullName | Sort-Object FullName)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\zzz10\\\\amr_warehouse_system\\\\AMR-Warehouse-System\\\\web_app\" -Recurse -Force | Where-Object { -not $_.PSIsContainer } | Select-Object FullName | Sort-Object FullName)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\zzz10\\\\amr_warehouse_system\\\\AMR-Warehouse-System\\\\ros2_ws\\\\src\" -Recurse -Force | ForEach-Object { $_.FullName } | Sort-Object)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\zzz10\\\\amr_warehouse_system\\\\AMR-Warehouse-System\" -Recurse -Force | Where-Object { $_.Extension -match '^\\\\.\\(json|yaml|yml|xml|txt|cfg|ini\\)$' } | Select-Object FullName | Sort-Object FullName)"
+    ]
+  }
+}
