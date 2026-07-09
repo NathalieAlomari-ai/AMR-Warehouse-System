@@ -28,3 +28,9 @@ datasets/
 *.engine
 *.onnx
 ros2_ws/src/amr_vision/models/
+
+# Editor / IDE
+.vscode/
+
+# Generated test QR images (create locally with scripts/generate_test_qr.py)
+ros2_ws/src/amr_vision/scripts/*.png

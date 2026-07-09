@@ -4,6 +4,7 @@
 #       See setup_jetson.sh for the full Jetson installation procedure.
 
 ultralytics>=8.0.0
+paho-mqtt>=1.6.1
 opencv-python>=4.8.0
 pyzbar>=0.1.9
 pyserial>=3.5
