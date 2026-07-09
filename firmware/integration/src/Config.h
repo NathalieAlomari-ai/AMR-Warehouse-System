@@ -73,10 +73,42 @@ static constexpr int   LIFT_REN          = 30;
 static constexpr int   LIFT_LEN          = 31;
 static constexpr int   LIFT_BOTTOM       = 34;   // 0 mm / home limit switch
 
-// Measured on the bench (open-loop, no encoder on the actuator itself —
-// position is estimated from commanded run time and re-zeroed whenever the
-// bottom limit switch fires). LIFT_MAX_TRAVEL_MM is a software-only clamp
-// now (no top switch backs it up), so a bad command can't ask for a mm value
-// beyond the rail's physical length.
-static constexpr float ACTUATOR_SPEED_MM_S  = 5.0f;
-static constexpr float LIFT_MAX_TRAVEL_MM   = 250.0f;
+// Measured on the assembled unit with the scissor + ~10 kg working load
+// attached (open-loop, no encoder on the actuator itself — position is
+// estimated from commanded run time and re-zeroed whenever the bottom limit
+// switch fires). Units are mm of ACTUATOR ROD travel, not scissor/platform
+// height — the two differ because the scissor linkage isn't 1:1.
+//
+// The rod's true physical travel is 0-444mm, NOT 500mm as first assumed —
+// confirmed by running the bare actuator straight off a power supply and
+// watching it refuse to extend past 44.4cm. That correction also feeds back
+// into both speed constants below.
+//
+// Load makes the two directions asymmetric, so timing needs separate speeds
+// instead of one shared constant. Both are calibrated from clean, direct
+// full-stroke (0mm <-> 444mm) timings, each with 1s subtracted from the
+// stopwatch reading to account for human reaction lag stopping the watch
+// (a fixed lag reads as a bigger relative error on the shorter measurement,
+// which is part of why the raw numbers still undershot the true speed):
+//   - Extending fights gravity + the 10kg load: full stroke home -> max,
+//     stopwatch 102.46s -> 101.46s corrected -> 444/101.46 = ~4.38 mm/s.
+//   - Retracting is gravity-assisted (lowering the load): full stroke max ->
+//     home, stopwatch 98.86s -> 97.86s corrected -> 444/97.86 = ~4.54 mm/s.
+//
+// This is pure open-loop timing with no position encoder, so any leftover
+// calibration error is a *percentage* of speed, which means its effect in
+// mm grows with move distance — e.g. a 1% speed error is ~1mm off on a
+// 120mm move but ~4mm off on a full 434mm move. That residual proportional
+// drift can't be fully eliminated without a position sensor; re-homing
+// (LIFT 0) between moves is what bounds it for real missions, since those
+// moves are much shorter than a full-stroke test.
+static constexpr float ACTUATOR_EXTEND_SPEED_MM_S  = 4.38f;
+static constexpr float ACTUATOR_RETRACT_SPEED_MM_S = 4.54f;
+
+// Actuator's own physical rod travel is 0-444mm (measured directly off a
+// power supply, independent of the scissor). Kept ~10mm below that true
+// mechanical stop since this clamp has no hardware backup (no top switch) —
+// the previous 490mm value was still above the real stop and was driving
+// the actuator into it, stalling there for the remainder of the commanded
+// run instead of stopping cleanly.
+static constexpr float LIFT_MAX_TRAVEL_MM   = 434.0f;

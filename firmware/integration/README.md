@@ -82,11 +82,17 @@ to change them if the physical wiring differs.
 ### `src/Config.h`
 Physical constants only — encoder counts, wheel geometry, PID gains (all
 copied verbatim from `firmware/src/Config.h`), plus the lift block added in
-this pass: the five pins above, `ACTUATOR_SPEED_MM_S = 5.0` (measured on the
-bench), and `LIFT_MAX_TRAVEL_MM = 250.0` (the physical rail length). With no
-top switch, `LIFT_MAX_TRAVEL_MM` is now a **software-only** clamp — it stops
-a bad/out-of-range command from asking for more travel than the rail has,
-but nothing hardware-side backs it up anymore.
+this pass: the five pins above, `ACTUATOR_EXTEND_SPEED_MM_S = 4.38` /
+`ACTUATOR_RETRACT_SPEED_MM_S = 4.54` (measured on the assembled unit under
+the scissor's ~10kg working load — extending fights gravity+load, retracting
+is gravity-assisted, so they're not the same speed), and
+`LIFT_MAX_TRAVEL_MM = 434.0` (~10mm under the actuator's true 444mm physical
+rod travel, confirmed by running the bare actuator off a power supply — the
+rod does not reach 500mm as first thought). With no top switch,
+`LIFT_MAX_TRAVEL_MM` is now a **software-only** clamp — it stops a
+bad/out-of-range command from asking
+for more travel than the rail has, but nothing hardware-side backs it up
+anymore.
 
 ### `src/DriveSystem.h`, `MotorController.h`, `MotorDriver.h`, `PIDController.h`
 Copied byte-for-byte from `firmware/src/` — this is the classmate-tuned,
@@ -96,8 +102,9 @@ odometry). Nothing here was touched; diffed identical against
 
 ### `src/LiftControl.h` *(new)*
 The BTS7960 scissor-lift driver. The actuator has **no position encoder** —
-only the one bottom limit switch — so height is estimated open-loop from
-commanded run time at `ACTUATOR_SPEED_MM_S`.
+only the one bottom limit switch — so position is estimated open-loop from
+commanded run time at `ACTUATOR_EXTEND_SPEED_MM_S` (extending) or
+`ACTUATOR_RETRACT_SPEED_MM_S` (retracting).
 
 This deviates from the literal example in the hand-off doc (which assumed
 two limit switches) in two ways, one a correctness fix and one a deliberate
@@ -106,8 +113,9 @@ simplification after bench testing:
 - **No top limit switch.** Full-range (min retracted → max extended) timing
   was verified directly on the assembled scissor lift, so the top switch —
   which was only ever a failsafe backstop — was dropped. `EXTENDING` and
-  `RETRACTING` are now symmetric: both are purely timed, no switch read
-  during either.
+  `RETRACTING` are both purely timed, no switch read during either — but they
+  use different speed constants, since the load makes retracting faster
+  (gravity-assisted) than extending (fighting gravity + load).
 - **Delta-based moves, not absolute-duration.** The hand-off doc's sketch
   computes move duration from the **absolute** target every time
   (`duration = mm / speed`), which is only correct if every move starts from
@@ -115,7 +123,8 @@ simplification after bench testing:
   → 120 mm (drop-off) — none of which start from 0 except the first. So
   `LiftControl` tracks an estimated `currentPositionMm_` and computes
   `delta = target - currentPositionMm_`, timing the move for
-  `|delta| / ACTUATOR_SPEED_MM_S` seconds in the correct direction.
+  `|delta| / speed` seconds in the correct direction (extend or retract speed,
+  whichever the sign of `delta` selects).
 
 The bottom switch is kept — not really as a "safety" switch, but as the
 **only re-homing reference** in the system. On `moveToMm(target)`, any
@@ -193,8 +202,9 @@ BNO055, Adafruit Unified Sensor), then **Upload** with the Teensy plugged in.
 - Bottom limit switch → 34, wired NC to GND (`INPUT_PULLUP`: LOW = clear,
   HIGH = triggered/wire-cut). There is no top switch — the rail's physical
   end stop is the only thing limiting over-extension, so double-check
-  `ACTUATOR_SPEED_MM_S`/`LIFT_MAX_TRAVEL_MM` in `Config.h` still match reality
-  before the first powered test.
+  `ACTUATOR_EXTEND_SPEED_MM_S`/`ACTUATOR_RETRACT_SPEED_MM_S`/
+  `LIFT_MAX_TRAVEL_MM` in `Config.h` still match reality before the first
+  powered test.
 - Manually press the bottom switch by hand before the first powered test and
   watch the serial monitor behavior in the next step — confirm the logic
   sense before trusting the re-home path.
@@ -217,10 +227,10 @@ won't reach `lift.begin()` until it's fixed.
 |---|---|
 | `V 30 30` | Wheels spin, telemetry keeps printing at 20 Hz — **regression check** |
 | `V 0 0` | Wheels stop |
-| `LIFT 100` | Extends for ~20 s (100 mm ÷ 5 mm/s) → `EVT LIFT DONE` |
-| `LIFT 0` | Retracts until the bottom switch **physically** triggers → `EVT LIFT DONE` (this is the real re-home path — confirm it stops exactly at the switch) |
-| `LIFT 120` (from 0) | Extends ~24 s → `EVT LIFT DONE` |
-| `LIFT 250` (from 0) | Extends fully to the rail's physical limit → `EVT LIFT DONE` — confirm it doesn't strain against the end stop for longer than a moment |
+| `LIFT 100` | Extends for ~23 s (100 mm ÷ 4.38 mm/s) → `EVT LIFT DONE` |
+| `LIFT 0` | Retracts until the bottom switch **physically** triggers → `EVT LIFT DONE` (this is the real re-home path — confirm it stops exactly at the switch, not seconds early) |
+| `LIFT 120` (from 0) | Extends ~27 s → `EVT LIFT DONE` |
+| `LIFT 434` (from 0) | Extends fully to the rail's physical limit (~99 s at 4.38 mm/s) → `EVT LIFT DONE` — confirm it doesn't strain against the end stop for longer than a moment |
 | `STOP` mid-move | Halts immediately, **no** `EVT` printed |
 
 Watch the telemetry line throughout — its format must never change, even
