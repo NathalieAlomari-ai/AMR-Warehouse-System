@@ -20,6 +20,7 @@ setup(
     entry_points={
         'console_scripts': [
             'vision_node = amr_vision.vision_node:main',
+            'mqtt_bridge = amr_vision.mqtt_bridge:main',
         ],
     },
 )
