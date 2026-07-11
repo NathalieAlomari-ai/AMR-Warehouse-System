@@ -18,15 +18,31 @@
 //    No top limit switch: full-range timing was bench-verified on the
 //    assembled scissor lift, so only the bottom (re-homing) switch is wired.
 //
+//  Stepper carriage (TB6600) + vacuum gripper (relays) — see Config.h:
+//    STEP=36  DIR=37  home-limit=32  max-limit=33
+//    Pump relay=40  Valve relay=41
+//
 // SERIAL PROTOCOL  (USB CDC, 115200 baud)
 //   Host → Teensy : "V <left_rpm> <right_rpm>\n"  (v or V) — drive
 //                    "LIFT <mm>\n"                          — move lift to absolute height
-//                    "STOP\n"                                — halt drive + lift immediately
-//                    (STEP/PUMP/SERVO: not yet implemented — ignored)
+//                    "PICK\n"                                — move lift to the fixed pick
+//                                                               height (PICK_LIFT_MM, Config.h)
+//                    "DROP\n"                                — move lift to the fixed drop-off
+//                                                               height (DROP_LIFT_MM, Config.h)
+//                    "STEP EXT\n"                            — extend carriage to the max limit
+//                    "STEP RET\n"                            — retract carriage to the home limit
+//                    "PUMP ON\n"                             — engage vacuum (valve open -> pump on)
+//                    "PUMP OFF\n"                            — release vacuum (pump off -> valve vent)
+//                    "STOP\n"                                — halt drive + lift + stepper immediately
+//                                                               (does NOT release the pump/valve —
+//                                                               see PumpControl::stop())
+//                    (SERVO: not yet implemented — ignored)
 //   Teensy → Host : "L_RPM:<f>\tR_RPM:<f>\tHdg:<f>\tDist:<f>\tLcnt:<i>\tRcnt:<i>\n"
 //                    at 20 Hz — unchanged, byte-for-byte, so the ROS bridge's
 //                    odometry parser is untouched.
 //                    "EVT LIFT DONE" on its own line whenever a lift move finishes.
+//                    "EVT STEP DONE" whenever a stepper extend/retract finishes.
+//                    "EVT PUMP ON" / "EVT PUMP OFF" whenever the gripper finishes.
 // =============================================================================
 
 #include <Arduino.h>
@@ -36,6 +52,8 @@
 #include "MotorController.h"
 #include "DriveSystem.h"
 #include "LiftControl.h"
+#include "StepperControl.h"
+#include "PumpControl.h"
 
 // ---------------------------------------------------------------------------
 // Hardware objects — order of global construction matters:
@@ -65,6 +83,10 @@ DriveSystem drive(leftMotor, rightMotor);
 
 // Scissor-lift actuator — see LiftControl.h / Config.h for pins & protocol.
 LiftControl lift;
+
+// Suction-cup carriage + vacuum gripper — see StepperControl.h/PumpControl.h.
+StepperControl stepperCarriage;
+PumpControl    pump;
 
 // ---------------------------------------------------------------------------
 // Timer interrupts
@@ -130,17 +152,54 @@ static void processCommand(const char* line) {
         return;
     }
 
+    // Fixed presentation heights — Teensy owns the target mm, not the Jetson.
+    if (!strcmp(line, "PICK")) {
+        lift.moveToMm(PICK_LIFT_MM);
+        lastCmdMs = millis();
+        return;
+    }
+
+    if (!strcmp(line, "DROP")) {
+        lift.moveToMm(DROP_LIFT_MM);
+        lastCmdMs = millis();
+        return;
+    }
+
+    if (!strcmp(line, "STEP EXT")) {
+        stepperCarriage.extend();
+        lastCmdMs = millis();
+        return;
+    }
+
+    if (!strcmp(line, "STEP RET")) {
+        stepperCarriage.retract();
+        lastCmdMs = millis();
+        return;
+    }
+
+    if (!strcmp(line, "PUMP ON")) {
+        pump.pumpOn();
+        lastCmdMs = millis();
+        return;
+    }
+
+    if (!strcmp(line, "PUMP OFF")) {
+        pump.pumpOff();
+        lastCmdMs = millis();
+        return;
+    }
+
     if (!strcmp(line, "STOP")) {
         lift.stop();
+        stepperCarriage.stop();
         cmdRpmL = 0.f;
         cmdRpmR = 0.f;
         lastCmdMs = millis();
         return;
     }
 
-    // "STEP EXT"/"STEP RET"/"PUMP ON"/"PUMP OFF"/"SERVO <deg>": not implemented
-    // yet (stepper carriage + vacuum gripper land in a follow-up pass) — fall
-    // through and ignore, same as any other unrecognized line.
+    // "SERVO <deg>": not implemented — vision's job, mission completes without
+    // it. Falls through and is ignored, same as any other unrecognized line.
 }
 
 // ---------------------------------------------------------------------------
@@ -155,7 +214,9 @@ void setup() {
     }
     Serial.println("IMU OK. Waiting for velocity commands...");
 
-    lift.begin();   // homes the lift so its position estimate starts accurate
+    lift.begin();             // homes the lift so its position estimate starts accurate
+    stepperCarriage.begin();  // homes the carriage against the bottom limit switch
+    pump.begin();
 
     lastCmdMs = millis();
 
@@ -182,8 +243,10 @@ void loop() {
         }
     }
 
-    // ── Lift state machine — non-blocking, must run every pass ───────────────
+    // ── Lift / stepper / pump state machines — non-blocking, must run every pass ──
     lift.update();
+    stepperCarriage.update();
+    pump.update();
 
     // ── Watchdog — zero targets if Jetson goes silent ─────────────────────────
     if (now - lastCmdMs > CMD_TIMEOUT_MS) {

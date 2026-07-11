@@ -2,8 +2,9 @@
 
 This project is the one firmware image meant to be flashed onto the robot's
 Teensy 4.1. It owns the drive PID + odometry (already proven, unchanged from
-`firmware/src/`) and, as of this pass, the scissor lift. Stepper carriage
-(suction-cup cup) and vacuum pump/valve are not wired in yet — see
+`firmware/src/`), the scissor lift, and — as of this pass — the stepper
+carriage (suction-cup cup) and vacuum pump/valve. `SERVO <deg>` (vision's
+cup-centring nudge) is the only piece not wired in yet — see
 [What's not here yet](#whats-not-here-yet).
 
 ## Why this project exists
@@ -14,8 +15,9 @@ The robot's hardware was tested in three separate places:
   one running on the physical robot for Nav2 testing.
 - **Linear actuator (lift)** — `linear_acc` branch, tested standalone on an
   ESP32 dev board.
-- **Stepper + vacuum pump** — `stepper_motor_test` branch, also tested on its
-  own ESP32.
+- **Stepper + vacuum pump** — `stepper_motor_test` branch (commit `4167a67`,
+  `firmware/stepper_motor/src/main.cpp`), tested on its own ESP32 as a
+  free-running ping-pong demo (extend → grip → retract → release → repeat).
 
 Only one program is allowed to own the robot's single USB serial line
 (`/dev/ttyACM0`) — that's `serial_bridge_node` on the ROS side — so all of the
@@ -73,6 +75,23 @@ collide with the list above, hence the re-map):
 
 There is deliberately **no top limit switch** — see
 [`src/LiftControl.h`](#srcliftcontrolh-new) below for why.
+
+New, for the stepper carriage + vacuum gripper (the `stepper_motor_test` ESP32
+sketch used pins 26/27/18/19/32/33 — only 18/19 collide here, since those are
+the IMU's I2C bus, so only the two relay pins move):
+
+| Signal | Pin |
+|---|---|
+| Stepper TB6600 PUL+ (step) | 26 |
+| Stepper TB6600 DIR+ | 27 |
+| Pump relay | 24 (was 18 on the ESP32 test — IMU SDA here) |
+| Valve relay | 25 (was 19 on the ESP32 test — IMU SCL here) |
+| Stepper home limit switch (retracted) | 32 |
+| Stepper max limit switch (extended) | 33 |
+
+Unlike the lift, the stepper carriage keeps **both** limit switches — every
+extend/retract drives all the way to a switch rather than a timed guess, so
+there's no open-loop drift to bound in the first place.
 
 All constants live in [`src/Config.h`](src/Config.h) — that's the one place
 to change them if the physical wiring differs.
@@ -154,36 +173,68 @@ wear) — it relies entirely on the bench-verified timing being right. If that
 stops being true (e.g. the actuator or gearing changes), reinstating a top
 switch is a small, self-contained change to `LiftControl::update()`.
 
+### `src/StepperControl.h` *(new)*
+Ported from `stepper_motor_test`'s TB6600 + `AccelStepper` driver. Unlike the
+lift, this is **not** open-loop timing — both `extend()` and `retract()` always
+drive toward a limit switch (`STEPPER_MAX_PIN` / `STEPPER_HOME_PIN`) rather
+than a computed distance, so every move is self-correcting and there's no
+drift to bound. The original test sketch was a free-running ping-pong demo
+(extend → grip → retract → release → repeat) with the grip/release baked into
+the same state machine; here motion is split out and driven by explicit
+`STEP EXT` / `STEP RET` commands, since `coordinator_node.py` sequences motion
+and gripping as separate steps.
+
+The test sketch's switch debounce used a blocking `delay(20)` — fine
+standalone, but the same problem as the lift's original hand-off sketch: it
+would stall the serial reader and block `STOP` mid-move. `StepperControl`
+uses the same `millis()`-based blind-window + debounce pattern as
+`LiftControl` instead.
+
+Homes itself at boot the same way the lift does (creep to the bottom switch,
+back off, zero), emitting `EVT STEP DONE` once — same event name a commanded
+`STEP EXT`/`STEP RET` uses, since the coordinator only cares about the prefix.
+
+### `src/PumpControl.h` *(new)*
+The vacuum gripper's two relays (pump + solenoid valve), also ported from
+`stepper_motor_test`. `pumpOn()` opens the valve, waits `VALVE_SETTLE_MS` for
+it to physically seat, then energizes the pump (`EVT PUMP ON`). `pumpOff()`
+cuts the pump, holds the valve shut for `PUMP_VENT_SETTLE_MS` so suction bleeds
+off in a controlled way, then vents (`EVT PUMP OFF`). Both non-blocking,
+`millis()`-timed, same reasoning as everywhere else in this project.
+
+`stop()` is deliberately a no-op: `STOP` is an e-stop for **motion**
+(drive/lift/stepper). If the gripper is mid-hold when `STOP` fires, cutting
+the pump would drop whatever it's holding — releasing a grip has to be a
+deliberate `PUMP OFF`, never a side effect of an emergency stop.
+
 ### `src/main.cpp`
 Wheels loop (serial receive, 5 s command watchdog, 50 Hz velocity PID ramp,
 20 Hz telemetry) is unchanged from `firmware/src/main.cpp`. Two additions:
 
-1. `processCommand()` gained two branches alongside the existing `V <l> <r>`:
+1. `processCommand()` gained branches alongside the existing `V <l> <r>`:
    - `LIFT <mm>` → `lift.moveToMm(...)`
-   - `STOP` → `lift.stop()` **and** zeroes `cmdRpmL`/`cmdRpmR` so `STOP` halts
-     both subsystems, not just one.
+   - `PICK` / `DROP` → `lift.moveToMm(PICK_LIFT_MM)` / `lift.moveToMm(DROP_LIFT_MM)`
+   - `STEP EXT` / `STEP RET` → `stepperCarriage.extend()` / `.retract()`
+   - `PUMP ON` / `PUMP OFF` → `pump.pumpOn()` / `.pumpOff()`
+   - `STOP` → `lift.stop()` **and** `stepperCarriage.stop()` **and** zeroes
+     `cmdRpmL`/`cmdRpmR`, so one `STOP` halts drive + lift + stepper together.
+     It deliberately does **not** touch the pump/valve — see
+     `PumpControl::stop()` above.
 
-   Both branches refresh `lastCmdMs` (the drive watchdog timestamp) the same
-   way the `V` branch already did, per the hand-off doc's warning — otherwise
-   a long `LIFT` move with no `V` traffic in between has no bearing on the
-   watchdog anyway since drive and lift are independent, but this keeps the
-   contract consistent for when `STEP`/`PUMP` land later and might need it.
+   Every branch refreshes `lastCmdMs` (the drive watchdog timestamp) the same
+   way the `V` branch already did, per the hand-off doc's warning.
 
-   `STEP EXT` / `STEP RET` / `PUMP ON` / `PUMP OFF` / `SERVO <deg>` are **not
-   implemented** — they simply fall through and are ignored, same as any
-   unrecognized line. This is intentional for this pass, not an oversight.
+   `SERVO <deg>` is the only command still **not implemented** — it falls
+   through and is ignored, same as any unrecognized line.
 
-2. `loop()` gained one line: `lift.update();`, called every pass, right
-   after the serial-receive block.
+2. `loop()` gained: `lift.update(); stepperCarriage.update(); pump.update();`,
+   called every pass, right after the serial-receive block.
 
 The 6-field telemetry line (`L_RPM:… R_RPM:… Hdg:… Dist:… Lcnt:… Rcnt:…`) is
 byte-for-byte unchanged — the ROS-side odometry/EKF parsing depends on it.
 
 ## What's not here yet
 
-- **Stepper carriage** (extends/retracts the suction cup) and **vacuum
-  pump/valve** (grip/release) — tested standalone in `stepper_motor_test`,
-  not yet ported. `STEP`/`PUMP` commands are currently no-ops.
 - **`SERVO <deg>`** — optional per the hand-off doc; it's vision's job to
   stream centering corrections, and the mission completes without it (the
   cup just won't get a final nudge).
@@ -194,9 +245,10 @@ byte-for-byte unchanged — the ROS-side odometry/EKF parsing depends on it.
 No PlatformIO CLI in most dev shells for this repo — use the **PlatformIO
 extension in VS Code**: open this folder, **Build** (compiles for
 `env:teensy41`; the first build also pulls `lib_deps` — Encoder, Adafruit
-BNO055, Adafruit Unified Sensor), then **Upload** with the Teensy plugged in.
+BNO055, Adafruit Unified Sensor, AccelStepper), then **Upload** with the
+Teensy plugged in.
 
-### 2. Wiring checklist before powering the actuator
+### 2. Wiring checklist before powering the actuator / carriage
 - BTS7960 lift driver: RPWM→28, LPWM→29, R_EN/L_EN→30/31, driver VCC→**3.3V**
   (Teensy pins are not 5V tolerant).
 - Bottom limit switch → 34, wired NC to GND (`INPUT_PULLUP`: LOW = clear,
@@ -208,6 +260,17 @@ BNO055, Adafruit Unified Sensor), then **Upload** with the Teensy plugged in.
 - Manually press the bottom switch by hand before the first powered test and
   watch the serial monitor behavior in the next step — confirm the logic
   sense before trusting the re-home path.
+- TB6600 stepper driver: PUL+→26, DIR+→27, PUL-/DIR- → common GND. **Set the
+  DIP switches to 1/16 microstep (SW4=ON, SW5=ON, SW6=OFF)** before the first
+  powered test — the motion profile in `Config.h` assumes that microstep
+  setting.
+- Stepper home/max limit switches → 32/33, same NC-to-GND / `INPUT_PULLUP`
+  wiring as the lift's bottom switch.
+- Pump relay → 24, valve relay → 25, both active HIGH. **Do not wire these to
+  18/19** — those are the IMU's I2C bus on this board (that's exactly the
+  collision this re-map exists to avoid).
+- Manually press both stepper limit switches by hand before the first powered
+  test, same reasoning as the lift's bottom switch.
 
 ### 3. Open the serial monitor
 115200 baud, **Newline** line ending (commands are only processed once a
@@ -216,10 +279,12 @@ BNO055, Adafruit Unified Sensor), then **Upload** with the Teensy plugged in.
 === AMR ROS2 Listener — booting ===
 IMU OK. Waiting for velocity commands...
 ```
-followed by one `EVT LIFT DONE` shortly after (the auto-home in
-`lift.begin()`). If it hangs on `FATAL: BNO055 IMU not found`, that's the
-wheels IMU wiring (SDA=18/SCL=19) — unrelated to the lift, but `setup()`
-won't reach `lift.begin()` until it's fixed.
+followed by one `EVT LIFT DONE` (the auto-home in `lift.begin()`) and one
+`EVT STEP DONE` (the auto-home in `stepperCarriage.begin()`) shortly after —
+order between the two isn't guaranteed, both are just re-homing at boot. If it
+hangs on `FATAL: BNO055 IMU not found`, that's the wheels IMU wiring
+(SDA=18/SCL=19) — unrelated to the lift/stepper, but `setup()` won't reach
+either `begin()` until it's fixed.
 
 ### 4. Test sequence
 
@@ -231,10 +296,16 @@ won't reach `lift.begin()` until it's fixed.
 | `LIFT 0` | Retracts until the bottom switch **physically** triggers → `EVT LIFT DONE` (this is the real re-home path — confirm it stops exactly at the switch, not seconds early) |
 | `LIFT 120` (from 0) | Extends ~27 s → `EVT LIFT DONE` |
 | `LIFT 434` (from 0) | Extends fully to the rail's physical limit (~99 s at 4.38 mm/s) → `EVT LIFT DONE` — confirm it doesn't strain against the end stop for longer than a moment |
-| `STOP` mid-move | Halts immediately, **no** `EVT` printed |
+| `PICK` | Lift moves to `PICK_LIFT_MM` → `EVT LIFT DONE` |
+| `DROP` | Lift moves to `DROP_LIFT_MM` → `EVT LIFT DONE` |
+| `STEP EXT` | Carriage drives out until the max limit switch fires → `EVT STEP DONE` |
+| `STEP RET` | Carriage drives in until the home limit switch fires → `EVT STEP DONE` (confirm it stops exactly at the switch) |
+| `PUMP ON` | Valve opens, ~200 ms later pump engages → `EVT PUMP ON` — listen/feel for suction |
+| `PUMP OFF` | Pump cuts, ~500 ms later valve vents → `EVT PUMP OFF` |
+| `STOP` mid-move | Halts drive/lift/stepper immediately, **no** `EVT` printed. If gripping, suction stays on (see `PumpControl::stop()`) |
 
 Watch the telemetry line throughout — its format must never change, even
-mid-`LIFT`.
+mid-move.
 
 ### Safety notes for the first physical run
 - This is open-loop/timed with **no top limit switch and no position
@@ -242,9 +313,15 @@ mid-`LIFT`.
   wear), nothing in firmware stops an over-extend except the rail's physical
   end stop. Keep a hand on the power switch for the first few `LIFT`
   commands, especially any near `LIFT_MAX_TRAVEL_MM`.
-- Test unloaded (no scissor arm load / no box) for the first pass.
+- Test unloaded (no scissor arm load / no box) for the first pass — for both
+  the lift and the stepper carriage.
 - Verify `STOP` works early — it's the one command that bypasses timing and
-  cuts PWM immediately, so it's your abort button for the rest of testing.
+  cuts PWM/steps immediately, so it's your abort button for the rest of
+  testing. Remember it does **not** release the vacuum grip — use `PUMP OFF`
+  for that.
+- Test `PUMP ON`/`PUMP OFF` with something light and disposable before
+  trusting it on an actual box — confirm the valve/pump ordering feels right
+  (valve-open-then-pump-on to grip, pump-off-then-valve-vent to release).
 
 Once the table above passes, the next step is exercising it through
 `serial_bridge_node` + `coordinator_node` with `vision_stub` faking the QR

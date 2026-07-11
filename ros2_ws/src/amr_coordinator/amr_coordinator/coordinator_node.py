@@ -21,7 +21,10 @@ published to serial_bridge_node, which is the only process that owns
 /dev/ttyACM0:
 
   publish /aux/command (std_msgs/String):
-      "LIFT <mm>"  "STEP EXT"  "STEP RET"  "PUMP ON"  "PUMP OFF"  "STOP"
+      "LIFT <mm>"  "PICK"  "DROP"  "STEP EXT"  "STEP RET"  "PUMP ON"  "PUMP OFF"  "STOP"
+      (PICK/DROP move the lift to Zahra's firmware-owned, bench-calibrated pick/
+      drop heights — see PICK_LIFT_MM/DROP_LIFT_MM in firmware/integration/src/
+      Config.h — so this node no longer needs to know or configure the actual mm.)
   wait on /aux/status (std_msgs/String) for the matching completion event:
       "EVT LIFT DONE"  "EVT STEP DONE"  "EVT PUMP ON"  "EVT PUMP OFF"
       "EVT FAULT <what>"   ← aborts the mission
@@ -76,9 +79,11 @@ class CoordinatorNode(Node):
         self.declare_parameter('dropoff',  [0.0, 2.0, 90.0])
         self.declare_parameter('home',     [0.0, 0.0, 0.0])
 
-        # ── Lift heights (mm) — must match Zahra's firmware LIFT limits ──────
-        self.declare_parameter('shelf_height_mm', 200)   # raise to shelf level
-        self.declare_parameter('drop_height_mm',  120)   # release height at bay
+        # ── Lift heights ──────────────────────────────────────────────────────
+        # Pick/drop heights are no longer a parameter here — the firmware owns
+        # the bench-calibrated PICK_LIFT_MM/DROP_LIFT_MM values (Config.h) and
+        # this node just says "PICK" / "DROP". Only the transit (fully down)
+        # height stays a parameter, since "LIFT 0" is also the lift's re-home path.
         self.declare_parameter('lift_down_mm',    0)     # fully retracted / home
 
         # ── Timeouts (s) ─────────────────────────────────────────────────────
@@ -262,8 +267,6 @@ class CoordinatorNode(Node):
 
     def _run_mission(self) -> None:
         p = self.get_parameter
-        shelf_h = p('shelf_height_mm').get_parameter_value().integer_value
-        drop_h  = p('drop_height_mm').get_parameter_value().integer_value
         down    = p('lift_down_mm').get_parameter_value().integer_value
         t_nav   = p('nav_timeout').get_parameter_value().double_value
         t_lift  = p('lift_timeout').get_parameter_value().double_value
@@ -277,8 +280,8 @@ class CoordinatorNode(Node):
         self._navigate_to('shelf_a', t_nav)
         self._confirm_vision('SHELF_QR', t_vis)
 
-        # 4. Raise the lift to shelf height.
-        self._aux_step(f'LIFT {shelf_h}', 'EVT LIFT DONE', t_lift)
+        # 4. Raise the lift to the firmware-owned pick height.
+        self._aux_step('PICK', 'EVT LIFT DONE', t_lift)
 
         # 5. Confirm the box QR; vision centres the cup (streams SERVO itself).
         sku = self._confirm_vision('BOX_QR', t_vis)
@@ -295,8 +298,9 @@ class CoordinatorNode(Node):
         # 10. Drive to the drop-off bay.
         self._navigate_to('dropoff', t_nav)
 
-        # 11. Drop sequence: raise, extend, release vacuum, retract, lower.
-        self._aux_step(f'LIFT {drop_h}', 'EVT LIFT DONE', t_lift)
+        # 11. Drop sequence: raise to the firmware-owned drop height, extend,
+        #     release vacuum, retract, lower.
+        self._aux_step('DROP', 'EVT LIFT DONE', t_lift)
         self._aux_step('STEP EXT',  'EVT STEP DONE', t_step)
         self._aux_step('PUMP OFF',  'EVT PUMP OFF',  t_pump)
         self._aux_step('STEP RET',  'EVT STEP DONE', t_step)

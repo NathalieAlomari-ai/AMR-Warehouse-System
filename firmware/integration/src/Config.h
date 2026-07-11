@@ -112,3 +112,83 @@ static constexpr float ACTUATOR_RETRACT_SPEED_MM_S = 4.54f;
 // the actuator into it, stalling there for the remainder of the commanded
 // run instead of stopping cleanly.
 static constexpr float LIFT_MAX_TRAVEL_MM   = 434.0f;
+
+// =============================================================================
+// Presentation-fixed pick/drop heights — for the demo scenario the lift always
+// goes to one of exactly two known table heights, so the Teensy owns the
+// target mm values instead of the Jetson computing/sending them.
+//
+// Table heights are ground -> table surface. The robot's own ground -> top-
+// of-scissor height was measured at the actuator's two travel extremes:
+//   - fully retracted (0mm actuator): 78cm
+//   - fully extended (444mm actuator, true stroke — see LIFT_MAX_TRAVEL_MM
+//     note above): 132.4cm
+// That gives a platform-height range of 54.4cm (544mm) across the full
+// 444mm actuator stroke — the scissor linkage isn't 1:1, so a target table
+// height is converted to actuator mm via that ratio (linear interpolation
+// between the two measured endpoints only; unverified in between).
+//
+// PICK_TABLE_HEIGHT_MM (76cm) is BELOW the platform's reachable minimum
+// (78cm at full retraction) — even fully home, the platform sits 2cm above
+// it. PICK_LIFT_MM below computes negative for this reason and relies on
+// moveToMm()'s existing constrain() to floor it to 0 (home). That means the
+// "pick" position will actually be ~78cm, not 76cm, until either the table
+// is confirmed to really be ~78cm or there's a gripper reach/offset below
+// the scissor top that closes this 2cm gap — verify this on the bench
+// before relying on it live.
+static constexpr float SCISSOR_HOME_HEIGHT_MM  = 780.0f;   // ground->top-of-scissor @ 0mm actuator (78cm)
+static constexpr float SCISSOR_MAX_HEIGHT_MM   = 1324.0f;  // ground->top-of-scissor @ 444mm actuator (132.4cm)
+static constexpr float SCISSOR_HEIGHT_RANGE_MM = SCISSOR_MAX_HEIGHT_MM - SCISSOR_HOME_HEIGHT_MM;   // 544mm
+static constexpr float ACTUATOR_FULL_STROKE_MM = 444.0f;   // true measured rod stroke (not the 434mm safety clamp)
+
+static constexpr float PICK_TABLE_HEIGHT_MM = 760.0f;  // 76cm — see caveat above
+static constexpr float DROP_TABLE_HEIGHT_MM = 880.0f;  // 88cm
+
+static constexpr float PICK_LIFT_MM = (PICK_TABLE_HEIGHT_MM - SCISSOR_HOME_HEIGHT_MM) * (ACTUATOR_FULL_STROKE_MM / SCISSOR_HEIGHT_RANGE_MM);
+static constexpr float DROP_LIFT_MM = (DROP_TABLE_HEIGHT_MM - SCISSOR_HOME_HEIGHT_MM) * (ACTUATOR_FULL_STROKE_MM / SCISSOR_HEIGHT_RANGE_MM);
+
+// =============================================================================
+// Stepper carriage (suction-cup extend/retract) + vacuum gripper.
+// Ported from the `stepper_motor_test` branch (firmware/stepper_motor/src/main.cpp,
+// commit 4167a67), which proved this out standalone on an ESP32 + TB6600 driver.
+//
+// That test sketch used pins 26/27 (step/dir), 18/19 (pump/valve relay), 32/33
+// (home/max limit switches). On this Teensy, 18/19 are already the BNO055 I2C
+// bus (SDA/SCL) and 26/27 ended up used elsewhere on this build, so step/dir
+// moved to 36/37 and the relays moved to 40/41. The limit switches kept their
+// original pins, 32/33 (lift only uses 28-31/34, so no conflict).
+// =============================================================================
+static constexpr int   STEPPER_STEP_PIN   = 36;   // TB6600 PUL+
+static constexpr int   STEPPER_DIR_PIN    = 37;   // TB6600 DIR+
+static constexpr int   STEPPER_HOME_PIN   = 32;   // bottom/retracted limit (re-homing reference)
+static constexpr int   STEPPER_MAX_PIN    = 33;   // top/extended limit
+
+static constexpr int   PUMP_RELAY_PIN     = 40;   // Relay 1 IN — active HIGH
+static constexpr int   VALVE_RELAY_PIN    = 41;   // Relay 2 IN — active HIGH
+
+// 1/16 microstep, 8mm lead screw -> 3200 steps/rev -> 400 steps/mm.
+// !! HARDWARE: set TB6600 DIP switches to 1/16 microstep before running:
+//    SW4=ON  SW5=ON  SW6=OFF
+// Not used for distance math below — both EXTEND and RETRACT drive toward a
+// limit switch, not a computed distance, same as the proven test sketch.
+static constexpr float    STEPPER_MAX_SPEED_SPS   = 3200.0f;  // 8 mm/s   — normal moves
+static constexpr float    STEPPER_HOMING_SPEED_SPS = 400.0f;  // 1 mm/s   — slow creep during homing
+static constexpr float    STEPPER_ACCELERATION     = 2400.0f; // 6 mm/s²
+static constexpr long     STEPPER_TRAVEL_STEPS     = 1000000L; // "move until a limit switch fires"
+static constexpr long     STEPPER_UNPRESS_STEPS    = 200L;     // back off after home switch contact
+
+// Same non-blocking debounce shape as LiftControl: ignore switch reads for
+// SWITCH_BLIND_MS after a move starts (driver-on noise spike), then require
+// the read to hold HIGH for SWITCH_DEBOUNCE_MS before trusting it. The proven
+// test sketch used a blocking delay(20) for this; that's fine standalone but
+// unacceptable here since it would stall the serial reader and block STOP
+// mid-move, same reasoning as LiftControl's homing debounce.
+static constexpr uint32_t STEPPER_SWITCH_BLIND_MS    = 500;
+static constexpr uint32_t STEPPER_SWITCH_DEBOUNCE_MS = 20;
+
+// Vacuum gripper timing (from the test sketch): the solenoid valve needs a
+// moment to physically open before the pump engages, and after the pump is
+// cut, the valve stays shut briefly before venting (lets suction bleed off
+// in a controlled way rather than an instant pop).
+static constexpr uint32_t VALVE_SETTLE_MS      = 200;   // valve open -> pump on
+static constexpr uint32_t PUMP_VENT_SETTLE_MS  = 500;   // pump off -> valve vent
