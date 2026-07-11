@@ -1,0 +1,14 @@
+# AMR Vision Pipeline — Python dependencies
+# Install on Jetson: pip install -r requirements.txt
+# NOTE: PyTorch for Jetson must be installed SEPARATELY before this file.
+#       See setup_jetson.sh for the full Jetson installation procedure.
+
+ultralytics>=8.0.0
+paho-mqtt>=1.6.1
+opencv-python>=4.8.0
+pyzbar>=0.1.9
+pyserial>=3.5
+numpy>=1.24.0
+openni>=2.3.0     # Python wrapper for OpenNI2 (pip install openni)
+qrcode[pil]>=7.4  # only needed to generate test QR codes
+Pillow>=9.0.0
