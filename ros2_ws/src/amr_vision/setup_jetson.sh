@@ -52,22 +52,29 @@ read -p "      Press ENTER when OpenNI2 is installed, or Ctrl+C to install it fi
 # ultralytics/opencv/torch (CV/ML). `ros2 run` executes with the system
 # Python that has rclpy — an isolated venv would hide rclpy from it and
 # raise ModuleNotFoundError on ultralytics if used the other way around.
-# So everything goes into the system interpreter. Ubuntu 22.04's pip
-# refuses system-wide installs by default (PEP 668) — override it.
+# So everything goes into the system interpreter. pip >=23.0.1 refuses
+# system-wide installs by default (PEP 668) and needs --break-system-packages;
+# older pip (e.g. 22.0.2 on stock Ubuntu 22.04) doesn't understand that flag
+# at all and errors out if you pass it. Detect support instead of assuming it.
+PIP_FLAGS=""
+if pip3 install --help 2>/dev/null | grep -q -- --break-system-packages; then
+    PIP_FLAGS="--break-system-packages"
+fi
+
 echo "[3/6] Upgrading pip (system Python)..."
-pip3 install --upgrade pip wheel --break-system-packages
+pip3 install --upgrade pip wheel $PIP_FLAGS
 
 # ── 4. PyTorch for Jetson ─────────────────────────────────────────────────────
 echo ""
 echo "[4/6] PyTorch for Jetson"
 echo "      Standard 'pip install torch' does NOT work on Jetson."
-echo "      Install from NVIDIA's Jetson wheels (system Python, --break-system-packages):"
+echo "      Install from NVIDIA's Jetson wheels (system Python):"
 echo ""
 echo "      JetPack 5.x (L4T r35):"
-echo "        pip3 install torch --break-system-packages --index-url https://developer.download.nvidia.com/compute/redist/jp/v511/"
+echo "        pip3 install torch $PIP_FLAGS --index-url https://developer.download.nvidia.com/compute/redist/jp/v511/"
 echo ""
 echo "      JetPack 6.x (L4T r36):"
-echo "        pip3 install torch --break-system-packages --index-url https://developer.download.nvidia.com/compute/redist/jp/v61/"
+echo "        pip3 install torch $PIP_FLAGS --index-url https://developer.download.nvidia.com/compute/redist/jp/v61/"
 echo ""
 echo "      Or check: https://forums.developer.nvidia.com/c/agx-autonomous-machines/jetson-embedded-systems/70"
 echo ""
@@ -78,11 +85,11 @@ python3 -c "import torch; print(f'PyTorch {torch.__version__}, CUDA: {torch.cuda
 
 # ── 5. Python packages ────────────────────────────────────────────────────────
 echo "[5/6] Installing Python packages (system Python)..."
-pip3 install -r "$(dirname "$0")/requirements.txt" --break-system-packages
+pip3 install -r "$(dirname "$0")/requirements.txt" $PIP_FLAGS
 
 # Remove opencv-python if system opencv is preferred (avoids conflicts)
 # pip3 uninstall -y opencv-python
-# pip3 install opencv-python-headless --break-system-packages
+# pip3 install opencv-python-headless $PIP_FLAGS
 
 # ── 6. Verify the camera ──────────────────────────────────────────────────────
 echo ""
