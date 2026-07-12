@@ -21,6 +21,12 @@
 //  Stepper carriage (TB6600) + vacuum gripper (relays) — see Config.h:
 //    STEP=36  DIR=37  home-limit=32  max-limit=33
 //    Pump relay=40  Valve relay=41
+//    Wired common-cathode (PUL+/DIR+ -> Teensy, PUL-/DIR- -> common GND).
+//    TB6600 DIP switches: SW4=ON SW5=ON SW6=OFF (1/16 microstep, required);
+//    SW1-3 set current, match to the stepper's rated current.
+//
+//  Full power/wiring guide (thick vs thin wire, grounding, DIP switch
+//  tables, per-driver pinout) is in README.md → "Power & wiring guide".
 //
 // SERIAL PROTOCOL  (USB CDC, 115200 baud)
 //   Host → Teensy : "V <left_rpm> <right_rpm>\n"  (v or V) — drive

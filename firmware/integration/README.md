@@ -77,15 +77,17 @@ There is deliberately **no top limit switch** — see
 [`src/LiftControl.h`](#srcliftcontrolh-new) below for why.
 
 New, for the stepper carriage + vacuum gripper (the `stepper_motor_test` ESP32
-sketch used pins 26/27/18/19/32/33 — only 18/19 collide here, since those are
-the IMU's I2C bus, so only the two relay pins move):
+sketch used pins 26/27 (step/dir), 18/19 (pump/valve relay), 32/33
+(limit switches). On this Teensy, 18/19 are already the BNO055 I2C bus and
+26/27 ended up used elsewhere on this build, so step/dir moved to 36/37 and
+the relays moved to 40/41 — the limit switches kept their original 32/33):
 
 | Signal | Pin |
 |---|---|
-| Stepper TB6600 PUL+ (step) | 26 |
-| Stepper TB6600 DIR+ | 27 |
-| Pump relay | 24 (was 18 on the ESP32 test — IMU SDA here) |
-| Valve relay | 25 (was 19 on the ESP32 test — IMU SCL here) |
+| Stepper TB6600 PUL+ (step) | 36 |
+| Stepper TB6600 DIR+ | 37 |
+| Pump relay | 40 |
+| Valve relay | 41 |
 | Stepper home limit switch (retracted) | 32 |
 | Stepper max limit switch (extended) | 33 |
 
@@ -95,6 +97,130 @@ there's no open-loop drift to bound in the first place.
 
 All constants live in [`src/Config.h`](src/Config.h) — that's the one place
 to change them if the physical wiring differs.
+
+## Power & wiring guide
+
+Read this before connecting a battery. It covers the full physical hookup:
+power architecture, which wires need to be thick vs thin, grounding, and the
+TB6600 DIP switches.
+
+### Power architecture
+
+```
+24V battery pack (+ / −)
+   │
+   ├── B+/B− → Right BTS7960 (drive)  ── M+/M− → right drive motor
+   ├── B+/B− → Left  BTS7960 (drive)  ── M+/M− → left  drive motor
+   ├── B+/B− → Lift  BTS7960          ── M+/M− → scissor actuator
+   └── separate stepper/pump supply (per their own voltage/current specs)
+         ├── → TB6600 VMOT/GND  ── A+/A−/B+/B− → NEMA stepper
+         └── → relay COM (switched load side, pump + valve)
+
+Teensy 4.1 5V/3.3V logic rails power: BTS7960 VCC (3.3V — NOT 5V), TB6600
+control side (PUL+/DIR+), limit switches (INPUT_PULLUP, no external supply
+needed), relay IN pins.
+```
+
+**All grounds — 24V−, stepper/pump supply−, TB6600 GND, BTS7960 GND, relay
+GND, Teensy GND — must be commoned.** A floating signal ground between the
+Teensy and any driver is the single most common cause of "motor doesn't
+move" / "motor moves randomly" bugs.
+
+### Thick wire vs thin wire
+
+| Wire | Carries | Gauge (min) | Why |
+|---|---|---|---|
+| 24V battery → each BTS7960 B+/B− | Full drive/actuator current (continuous amps, spikes higher under load) | 14–16 AWG | Heating/voltage drop scale with current — undersized power wire is a fire/brownout risk, not just inefficiency |
+| BTS7960 M+/M− → motor/actuator | Same current as above | 14–16 AWG | Same reasoning |
+| Stepper supply → TB6600 VMOT/GND, and TB6600 → stepper coils | Stepper current (set by DIP switches, ≤4A typ.) | 18–20 AWG | Lower current than drive motors, still a power line |
+| Relay COM/NO → pump/valve | Whatever the pump/valve draws — check its nameplate | 18–20 AWG | — |
+| RPWM/LPWM/R_EN/L_EN (BTS7960 control) | A few mA, logic only | 22–26 AWG | Signal only |
+| PUL+/DIR+ (TB6600 control) | A few mA (opto LED current) | 22–26 AWG | Signal only |
+| Limit switches, encoders, I2C | A few mA | 22–26 AWG | Signal only |
+| Common ground return between boards | Logic return current | 20–22 AWG, keep it short | Reference, not power, but don't go thinner than the signal pair it serves |
+
+Rule of thumb: **anything running between a battery/supply and a motor
+terminal is thick wire (14–20 AWG depending on the load); anything that's a
+control/logic signal between the Teensy and a driver is thin wire
+(22–26 AWG)** — thin is actually preferable there, it's easier to route
+around the chassis without stressing headers/connectors.
+
+### TB6600 stepper driver — DIP switches
+
+Six switches: SW1–SW3 set motor **current**, SW4–SW6 set **microstepping**.
+Tables can vary slightly between clone boards — cross-check against your
+board's silkscreen/datasheet if these don't match.
+
+**Microstep (SW4/SW5/SW6) — this firmware requires 1/16 step:**
+
+| SW4 | SW5 | SW6 | Microstep | Steps/rev (200 spr motor) |
+|---|---|---|---|---|
+| ON | ON | ON | Full step | 200 |
+| OFF | ON | ON | 1/2 | 400 |
+| ON | OFF | ON | 1/4 | 800 |
+| OFF | OFF | ON | 1/8 | 1600 |
+| **ON** | **ON** | **OFF** | **1/16 ← required** | **3200** |
+| OFF | ON | OFF | 1/32 | 6400 |
+
+`STEPPER_MAX_SPEED_SPS` / `STEPPER_ACCELERATION` / the 400-steps/mm
+lead-screw math in `Config.h` all assume 3200 steps/rev. Any other
+microstep setting desyncs the firmware's speed/mm from the real motor
+speed — it'll still run, just at the wrong physical speed.
+
+**Current (SW1/SW2/SW3) — match your stepper's rated phase current (its
+nameplate, e.g. "1.8A/phase"):**
+
+| SW1 | SW2 | SW3 | Current |
+|---|---|---|---|
+| ON | ON | ON | 0.5A |
+| ON | ON | OFF | 1.0A |
+| ON | OFF | ON | 1.5A |
+| ON | OFF | OFF | 2.0A |
+| OFF | ON | ON | 2.5A |
+| OFF | ON | OFF | 3.0A |
+| OFF | OFF | ON | 3.5A |
+| OFF | OFF | OFF | 4.0A |
+
+Set this **at or just below** the motor's rated current — over-setting runs
+it hotter than spec (cooks the windings over time); under-setting loses
+torque and causes skipped steps under load.
+
+### TB6600 signal wiring — common cathode
+
+This build is wired **common cathode**: `PUL−`/`DIR−`/`ENA−` on the TB6600
+are tied together to a shared GND, and the Teensy drives `PUL+`→pin 36,
+`DIR+`→pin 37 directly as active-HIGH pulses. This matches
+`StepperControl.h`'s `stepper_.setPinsInverted(true, false, false)` — the
+`stepInvert` argument (2nd) is `false`, i.e. un-inverted/active-HIGH pulses,
+which is only correct for this common-cathode wiring. The `true` (1st
+argument) is unrelated to cathode/anode — it only fixes which physical
+direction AccelStepper calls "positive" so `+steps == extend`.
+
+`ENA+`/`ENA−` are left unconnected — this firmware never drives a stepper
+enable pin, so the TB6600 must be wired/jumpered to stay enabled by default.
+
+### BTS7960 (drive ×2 + lift, 3 total)
+
+- `VCC` → Teensy **3.3V**, never 5V (Teensy 4.1 pins are not 5V tolerant).
+- `GND` → common ground rail.
+- `RPWM`/`LPWM` → Teensy PWM pins (forward/reverse).
+- `R_EN`/`L_EN` → Teensy digital pins, driven active-HIGH by `MotorDriver::begin()` / `LiftControl::begin()`.
+- `B+`/`B−` → 24V supply (thick wire).
+- `M+`/`M−` → motor/actuator terminals (thick wire; swap the two to flip default direction instead of touching code).
+
+### Relays (pump/valve)
+
+- `IN` pins → Teensy 40 (pump) / 41 (valve), **active HIGH**.
+- Switched side (`COM`/`NO`/`NC`) wired per your pump/valve's own voltage —
+  confirm it's isolated from the 24V motor rail unless the pump/valve is
+  actually rated for 24V.
+
+### Limit switches
+
+All four (lift bottom=34, stepper home=32, stepper max=33) are wired
+**normally-closed to GND**, read via `INPUT_PULLUP`: LOW = closed (clear),
+HIGH = open (triggered **or** wire cut — deliberate, so a severed wire reads
+as "triggered" instead of silently reading "clear").
 
 ## Code walkthrough
 
@@ -249,6 +375,9 @@ BNO055, Adafruit Unified Sensor, AccelStepper), then **Upload** with the
 Teensy plugged in.
 
 ### 2. Wiring checklist before powering the actuator / carriage
+See [Power & wiring guide](#power--wiring-guide) above for the full
+rundown (power architecture, wire gauge, grounding, DIP switches). Quick
+pre-power checklist:
 - BTS7960 lift driver: RPWM→28, LPWM→29, R_EN/L_EN→30/31, driver VCC→**3.3V**
   (Teensy pins are not 5V tolerant).
 - Bottom limit switch → 34, wired NC to GND (`INPUT_PULLUP`: LOW = clear,
@@ -260,13 +389,14 @@ Teensy plugged in.
 - Manually press the bottom switch by hand before the first powered test and
   watch the serial monitor behavior in the next step — confirm the logic
   sense before trusting the re-home path.
-- TB6600 stepper driver: PUL+→26, DIR+→27, PUL-/DIR- → common GND. **Set the
-  DIP switches to 1/16 microstep (SW4=ON, SW5=ON, SW6=OFF)** before the first
-  powered test — the motion profile in `Config.h` assumes that microstep
-  setting.
+- TB6600 stepper driver: PUL+→36, DIR+→37, PUL-/DIR- → common GND
+  (common-cathode wiring). **Set the DIP switches to 1/16 microstep
+  (SW4=ON, SW5=ON, SW6=OFF)** and the current switches (SW1-3) to match your
+  motor's rated current — before the first powered test, since the motion
+  profile in `Config.h` assumes 1/16 microstep specifically.
 - Stepper home/max limit switches → 32/33, same NC-to-GND / `INPUT_PULLUP`
   wiring as the lift's bottom switch.
-- Pump relay → 24, valve relay → 25, both active HIGH. **Do not wire these to
+- Pump relay → 40, valve relay → 41, both active HIGH. **Do not wire these to
   18/19** — those are the IMU's I2C bus on this board (that's exactly the
   collision this re-map exists to avoid).
 - Manually press both stepper limit switches by hand before the first powered

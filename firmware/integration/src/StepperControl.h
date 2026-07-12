@@ -33,7 +33,11 @@ public:
         pinMode(STEPPER_MAX_PIN,  INPUT_PULLUP);
 
         // Invert DIR so that positive steps = extend (away from the robot body),
-        // matching the proven test sketch's convention.
+        // matching the proven test sketch's convention. stepInvert (2nd arg)
+        // stays false: this board is wired common-cathode (PUL+/DIR+ -> pins
+        // 36/37, PUL-/DIR- -> common GND), so pulses are active-HIGH as-is —
+        // see README.md "Power & wiring guide" for the full wiring/DIP switch
+        // reference. This directionInvert flag is unrelated to cathode/anode.
         stepper_.setPinsInverted(true, false, false);
         stepper_.setMaxSpeed(STEPPER_HOMING_SPEED_SPS);
         stepper_.setAcceleration(STEPPER_ACCELERATION);

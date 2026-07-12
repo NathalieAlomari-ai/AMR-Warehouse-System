@@ -169,6 +169,9 @@ static constexpr int   VALVE_RELAY_PIN    = 41;   // Relay 2 IN — active HIGH
 // 1/16 microstep, 8mm lead screw -> 3200 steps/rev -> 400 steps/mm.
 // !! HARDWARE: set TB6600 DIP switches to 1/16 microstep before running:
 //    SW4=ON  SW5=ON  SW6=OFF
+// Also set the current switches (SW1-3) to match the stepper's rated
+// current — see README.md "Power & wiring guide" for the full DIP switch
+// tables and common-cathode signal wiring (PUL+/DIR+ here, PUL-/DIR- to GND).
 // Not used for distance math below — both EXTEND and RETRACT drive toward a
 // limit switch, not a computed distance, same as the proven test sketch.
 static constexpr float    STEPPER_MAX_SPEED_SPS   = 3200.0f;  // 8 mm/s   — normal moves
