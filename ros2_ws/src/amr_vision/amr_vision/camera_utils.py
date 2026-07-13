@@ -27,7 +27,7 @@ Jetson note (when porting):
 import cv2
 import numpy as np
 from openni import openni2
-from config import OPENNI2_PATH, RGB_CAM_INDEX
+from config import OPENNI2_PATH, RGB_CAM_INDEX, DEPTH_ENABLED
 
 # Astra Pro valid depth range (hardware limitation)
 DEPTH_MIN_MM = 600    # 60 cm — closer than this returns 0
@@ -62,18 +62,33 @@ class AstraCamera:
         self._depth_stream       = None
         self._openni_initialized = False
         self.depth_available     = False
-        try:
-            openni2.initialize(OPENNI2_PATH)
-            self._openni_initialized = True
-            self._device       = openni2.Device.open_any()
-            self._depth_stream = self._device.create_depth_stream()
-            self._depth_stream.start()
-            self.depth_available = True
-            print(f"[AstraCamera] Depth stream open (OpenNI2 @ {OPENNI2_PATH})")
-        except Exception as e:
-            print(f"[AstraCamera] WARNING: depth unavailable — {e}")
-            print("[AstraCamera] Running RGB-ONLY: QR + centering work; "
-                  "approach-distance is disabled until the depth sensor connects.")
+        if not DEPTH_ENABLED:
+            # Depth explicitly disabled (DEPTH_ENABLED=0). Do NOT touch OpenNI2 at
+            # all — a failed device-open can leave a USB thread that segfaults the
+            # whole process. Pure RGB via OpenCV below.
+            print("[AstraCamera] DEPTH_ENABLED=0 — skipping OpenNI2, RGB-only mode.")
+        else:
+            try:
+                openni2.initialize(OPENNI2_PATH)
+                self._openni_initialized = True
+                self._device       = openni2.Device.open_any()
+                self._depth_stream = self._device.create_depth_stream()
+                self._depth_stream.start()
+                self.depth_available = True
+                print(f"[AstraCamera] Depth stream open (OpenNI2 @ {OPENNI2_PATH})")
+            except Exception as e:
+                print(f"[AstraCamera] WARNING: depth unavailable — {e}")
+                print("[AstraCamera] Running RGB-ONLY: QR + centering work; "
+                      "approach-distance is disabled until the depth sensor connects.")
+                # Best-effort teardown so OpenNI2's USB thread doesn't linger and
+                # segfault. If depth keeps failing, run with DEPTH_ENABLED=0.
+                try:
+                    if self._openni_initialized:
+                        openni2.unload()
+                except Exception:
+                    pass
+                self._openni_initialized = False
+                self._depth_stream       = None
 
         # Initialise OpenCV for the RGB stream
         self._cap = cv2.VideoCapture(rgb_index)

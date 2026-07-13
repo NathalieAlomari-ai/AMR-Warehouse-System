@@ -22,12 +22,20 @@ IS_WINDOWS = platform.system() == "Windows"
 # Path to the OpenNI2 shared library directory.
 # Windows: installed by the Astra Pro SDK at C:\OpenNI2\Bin
 # Jetson:  installed via apt or the Orbbec SDK — usually /usr/lib
-_default_openni2 = "/usr/lib" if IS_JETSON else r"C:\OpenNI2\Bin"
+_default_openni2 = "/usr/lib/aarch64-linux-gnu" if IS_JETSON else r"C:\OpenNI2\Bin"
 OPENNI2_PATH = os.getenv("OPENNI2_PATH", _default_openni2)
 
 # OpenCV camera index for the Astra Pro RGB stream.
 # If the wrong camera opens, set RGB_CAM_INDEX=1 in your environment.
 RGB_CAM_INDEX = int(os.getenv("RGB_CAM_INDEX", "0"))
+
+# Depth on/off. Set DEPTH_ENABLED=0 to skip OpenNI2 entirely and run RGB-only.
+# Use this on a Jetson where the depth sensor isn't powered yet: a FAILED
+# OpenNI2 device-open leaves a dangling USB thread that segfaults the process,
+# so when depth can't work it is safer never to touch OpenNI2 at all. QR
+# reading and cup-centering only need RGB. Set back to 1 once the depth sensor
+# opens cleanly (e.g. on a powered USB hub).
+DEPTH_ENABLED = bool(int(os.getenv("DEPTH_ENABLED", "1")))
 
 # ── Serial port ───────────────────────────────────────────────────────────────
 # Teensy 4.1 serial port name.
