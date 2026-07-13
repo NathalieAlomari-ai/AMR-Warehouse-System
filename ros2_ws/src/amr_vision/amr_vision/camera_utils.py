@@ -51,11 +51,29 @@ class AstraCamera:
                    Usually 0 or 1 depending on other connected cameras.
                    If the wrong camera opens, change this to 1.
         """
-        # Initialise OpenNI2 for the depth stream
-        openni2.initialize(OPENNI2_PATH)
-        self._device       = openni2.Device.open_any()
-        self._depth_stream = self._device.create_depth_stream()
-        self._depth_stream.start()
+        # ── Depth via OpenNI2 (OPTIONAL) ─────────────────────────────────────
+        # The depth sensor (IR projector) is power-hungry and may fail to open
+        # on an under-powered / hub-chained USB port ("USB transfer timeout").
+        # That must NOT take down vision: QR reading and cup-centering run on
+        # RGB alone. So if depth can't open we log it and degrade to RGB-only;
+        # read() then returns a zeroed depth frame and the pipeline keeps going.
+        # Depth lights up automatically once the sensor is on a good port /
+        # powered hub — no code change needed.
+        self._depth_stream       = None
+        self._openni_initialized = False
+        self.depth_available     = False
+        try:
+            openni2.initialize(OPENNI2_PATH)
+            self._openni_initialized = True
+            self._device       = openni2.Device.open_any()
+            self._depth_stream = self._device.create_depth_stream()
+            self._depth_stream.start()
+            self.depth_available = True
+            print(f"[AstraCamera] Depth stream open (OpenNI2 @ {OPENNI2_PATH})")
+        except Exception as e:
+            print(f"[AstraCamera] WARNING: depth unavailable — {e}")
+            print("[AstraCamera] Running RGB-ONLY: QR + centering work; "
+                  "approach-distance is disabled until the depth sensor connects.")
 
         # Initialise OpenCV for the RGB stream
         self._cap = cv2.VideoCapture(rgb_index)
@@ -83,19 +101,24 @@ class AstraCamera:
         if not ret:
             return False, None, None
 
-        # Read depth from OpenNI2
-        raw        = self._depth_stream.read_frame()
-        buf        = raw.get_buffer_as_uint16()
-        depth      = np.frombuffer(buf, dtype=np.uint16).copy()
-        depth      = depth.reshape((FRAME_H, FRAME_W))
+        # Read depth from OpenNI2 — or a zeroed frame in RGB-only mode.
+        if self._depth_stream is not None:
+            raw   = self._depth_stream.read_frame()
+            buf   = raw.get_buffer_as_uint16()
+            depth = np.frombuffer(buf, dtype=np.uint16).copy().reshape((FRAME_H, FRAME_W))
+        else:
+            depth = np.zeros((FRAME_H, FRAME_W), dtype=np.uint16)  # RGB-only fallback
 
         return True, rgb, depth
 
     def close(self):
         """Release all camera resources. Always call this on shutdown."""
-        self._cap.release()
-        self._depth_stream.stop()
-        openni2.unload()
+        if getattr(self, "_cap", None) is not None:
+            self._cap.release()
+        if self._depth_stream is not None:
+            self._depth_stream.stop()
+        if self._openni_initialized:
+            openni2.unload()
 
     # Context manager support — lets you write: with AstraCamera() as cam:
     def __enter__(self):
