@@ -19,7 +19,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            # qr_detector = amr_vision.qr_detector:main
+            'vision_node = amr_vision.vision_node:main',
+            'mqtt_bridge = amr_vision.mqtt_bridge:main',
         ],
     },
 )

@@ -60,7 +60,8 @@ class AMRMqttPublisher:
                  broker_host: str = "localhost",
                  broker_port: int = 1883,
                  shelf_id: str    = "",
-                 dry_run: bool    = False):
+                 dry_run: bool    = False,
+                 client_id: str   = "amr_vision"):
 
         self._dry_run      = dry_run
         self._shelf_id     = shelf_id     # included in every status publish
@@ -77,17 +78,24 @@ class AMRMqttPublisher:
             print("[MQTT] dry_run — messages printed, not sent")
             return
 
-        self._client = mqtt.Client(client_id="amr_vision")
+        # client_id must be UNIQUE per connection — a broker kicks off any
+        # existing client that reconnects with the same id. vision_main.py uses
+        # the default; mqtt_bridge passes its own so both can coexist if needed.
+        self._client = mqtt.Client(client_id=client_id)
         self._client.on_connect    = self._on_connect
         self._client.on_disconnect = self._on_disconnect
         self._client.on_message    = self._on_message
 
+        # connect_async + loop_start: the network thread establishes the link and
+        # AUTO-RECONNECTS if the broker restarts or isn't up yet (common on the
+        # Jetson at boot). Messages published while offline are dropped by _pub
+        # (self._connected guard), not crashed on.
         try:
-            self._client.connect(broker_host, broker_port, keepalive=60)
+            self._client.connect_async(broker_host, broker_port, keepalive=60)
             self._client.loop_start()
-            print(f"[MQTT] Connecting to {broker_host}:{broker_port} ...")
+            print(f"[MQTT] Connecting to {broker_host}:{broker_port} (auto-reconnect) ...")
         except Exception as e:
-            print(f"[MQTT] Cannot connect: {e} — falling back to dry_run")
+            print(f"[MQTT] Cannot start MQTT client: {e} — falling back to dry_run")
             self._dry_run = True
 
     # ── Status publishing ──────────────────────────────────────────────────────
@@ -106,6 +114,14 @@ class AMRMqttPublisher:
         stage = status if status in STAGE_TO_STATE else "RUNNING"
         web_state = STAGE_TO_STATE.get(stage, "NAVIGATING")
         self._publish_status(web_state, stage)
+
+    def publish_web_state(self, web_state: str, vision_stage: str = ""):
+        """Publish an explicit dashboard state string, e.g. "IDLE", "NAVIGATING",
+        "SCANNING QR", "DETECTING BOX", "ALIGNING", "LIFTING", "DELIVERING".
+
+        Used by mqtt_bridge, which infers the state from ROS topics in the
+        integrated mission rather than from vision pipeline stage names."""
+        self._publish_status(web_state, vision_stage or web_state)
 
     def publish_shelf_confirmed(self, shelf_id: str):
         """Called when Stage 1 confirms the shelf QR. Updates current_order."""
@@ -139,6 +155,10 @@ class AMRMqttPublisher:
     def set_battery(self, percent: float):
         """Called by whoever reads the battery sensor (Teensy team)."""
         self._battery = percent
+
+    def set_current_order(self, shelf_id: str):
+        """Set the shelf/order id echoed in every status payload's current_order."""
+        self._shelf_id = shelf_id
 
     # ── Internal ───────────────────────────────────────────────────────────────
 

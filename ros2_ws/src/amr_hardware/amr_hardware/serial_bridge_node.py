@@ -29,6 +29,22 @@ Serial protocol (from Teensy firmware, 20 Hz)
 ────────────────────────────────────────────
   Teensy → host: "L_RPM:<f>  R_RPM:<f>  Hdg:<f>  Dist:<f>  Lcnt:<i>  Rcnt:<i>\\n"
   Host → Teensy: "V <left_rpm> <right_rpm>\\n"
+
+Aux-hardware bridge (shared serial line — single owner)
+───────────────────────────────────────────────────────
+This node is the ONLY process that opens /dev/ttyACM0.  Lift / stepper / pump /
+servo commands therefore cannot open their own port; they are published as
+plain strings and forwarded here verbatim, so there is never any port
+contention with /cmd_vel.
+
+  /aux/command (std_msgs/String) → written to Teensy unchanged, one line each:
+      "LIFT <mm>"  "STEP EXT"  "STEP RET"  "PUMP ON"  "PUMP OFF"
+      "SERVO <deg>"  "STOP"
+  /aux/status  (std_msgs/String) ← every Teensy line beginning with "EVT ":
+      "EVT LIFT DONE"  "EVT STEP DONE"  "EVT PUMP ON"  "EVT PUMP OFF"
+      "EVT FAULT <what>"
+The 6-field telemetry line is unchanged; only "EVT …" lines are split off to
+/aux/status, so the odometry/IMU path is completely untouched.
 """
 
 import math
@@ -39,6 +55,7 @@ from rclpy.node import Node
 from geometry_msgs.msg import Twist, TransformStamped
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Imu
+from std_msgs.msg import String
 import tf2_ros
 import serial
 
@@ -110,6 +127,8 @@ class SerialBridgeNode(Node):
         self._odom_pub = self.create_publisher(Odometry, '/wheel/odometry', 10)
         # BNO055 heading → EKF for yaw / yaw-rate fusion
         self._imu_pub  = self.create_publisher(Imu, '/imu/data', 10)
+        # Aux-hardware event channel: Teensy "EVT …" lines → coordinator
+        self._aux_status_pub = self.create_publisher(String, '/aux/status', 10)
 
         # TF broadcaster — only active when publish_tf is True
         if self._publish_tf:
@@ -118,6 +137,8 @@ class SerialBridgeNode(Node):
             self._tf_broadcaster = None
 
         self.create_subscription(Twist, '/cmd_vel', self._cmd_vel_cb, 10)
+        # Aux-hardware commands (lift/stepper/pump/servo) — forwarded verbatim.
+        self.create_subscription(String, '/aux/command', self._aux_command_cb, 10)
         self.create_timer(0.01, self._read_serial)    # 100 Hz serial read
         self.create_timer(0.02, self._smoother_cb)    #  50 Hz velocity ramp
 
@@ -179,6 +200,27 @@ class SerialBridgeNode(Node):
         r_rpm = (linear + angular * self._wheel_base / 2.0) * rpm_factor
         packet = f'V {l_rpm:.2f} {r_rpm:.2f}\n'
         self.get_logger().debug(f'Sending: {packet.strip()}')
+        self._write_line(packet)
+
+    # ── Aux-hardware command passthrough ──────────────────────────────────────
+
+    def _aux_command_cb(self, msg: String) -> None:
+        """Forward a lift/stepper/pump/servo command to the Teensy verbatim.
+
+        The payload is already in the Teensy wire format (e.g. "LIFT 120",
+        "STEP EXT", "STOP") — this node adds nothing but the newline, so the
+        single serial owner never has to understand aux semantics.
+        """
+        cmd = msg.data.strip()
+        if not cmd:
+            return
+        self.get_logger().info(f'aux → Teensy: {cmd}')
+        self._write_line(cmd + '\n')
+
+    def _write_line(self, packet: str) -> None:
+        """Single serial-write path shared by drive and aux commands."""
+        if self._ser is None or not self._ser.is_open:
+            return
         try:
             self._ser.write(packet.encode('utf-8'))
         except serial.serialutil.SerialException as e:
@@ -196,7 +238,12 @@ class SerialBridgeNode(Node):
                 decoded = line.decode('utf-8', errors='replace').strip()
                 if decoded:
                     self.get_logger().debug(f'Raw incoming: {decoded}')
-                    self._parse_telemetry(decoded)
+                    if decoded.startswith('EVT '):
+                        # Aux-hardware event → coordinator, not odometry.
+                        self.get_logger().info(f'Teensy → aux: {decoded}')
+                        self._aux_status_pub.publish(String(data=decoded))
+                    else:
+                        self._parse_telemetry(decoded)
         except Exception as e:
             self.get_logger().error(f'Serial read error: {e}')
 
