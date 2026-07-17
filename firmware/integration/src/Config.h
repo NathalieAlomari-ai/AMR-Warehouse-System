@@ -174,9 +174,18 @@ static constexpr int   VALVE_RELAY_PIN    = 41;   // Relay 2 IN — active HIGH
 // tables and common-cathode signal wiring (PUL+/DIR+ here, PUL-/DIR- to GND).
 // Not used for distance math below — both EXTEND and RETRACT drive toward a
 // limit switch, not a computed distance, same as the proven test sketch.
-static constexpr float    STEPPER_MAX_SPEED_SPS   = 3200.0f;  // 8 mm/s   — normal moves
-static constexpr float    STEPPER_HOMING_SPEED_SPS = 400.0f;  // 1 mm/s   — slow creep during homing
-static constexpr float    STEPPER_ACCELERATION     = 2400.0f; // 6 mm/s²
+// Bumped up from the original 3200/400 (8 / 1 mm/s) for faster cycle time —
+// test that neither speed causes the motor to skip steps (stall) under load
+// before trusting these; back off if it buzzes/judders instead of running
+// smooth, or if the carriage hesitates/stops short of the limit switch.
+static constexpr float    STEPPER_MAX_SPEED_SPS   = 4200.0f;  // ~10.5 mm/s — normal moves
+static constexpr float    STEPPER_HOMING_SPEED_SPS = 1200.0f; // ~3 mm/s    — slow creep during homing
+// stepper_.stop() (StepperControl.h) decelerates using this value rather than
+// halting instantly, and the coast-out distance after a limit switch fires
+// scales with speed² — raised alongside STEPPER_MAX_SPEED_SPS above to keep
+// roughly the same stopping distance (~2100 steps) at the new, higher cruise
+// speed instead of nearly doubling it.
+static constexpr float    STEPPER_ACCELERATION     = 4200.0f; // ~10.5 mm/s²
 static constexpr long     STEPPER_TRAVEL_STEPS     = 1000000L; // "move until a limit switch fires"
 static constexpr long     STEPPER_UNPRESS_STEPS    = 200L;     // back off after home switch contact
 
