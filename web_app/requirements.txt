@@ -1,0 +1,4 @@
+Flask>=3.0.0
+# paho-mqtt MUST stay <2.0: app.py uses the v1 callback API
+# (mqtt.Client(client_id=..., protocol=MQTTv311)); paho 2.x changed that signature.
+paho-mqtt>=1.6.1,<2.0.0
