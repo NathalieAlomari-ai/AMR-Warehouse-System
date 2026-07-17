@@ -144,9 +144,20 @@ class VisionNode(Node):
         self._box    = BoxDetector(self._model)
         self._servo  = VisualServo()
 
-        # Robot motion for cup centring goes through /cmd_vel (serial_bridge owns
-        # the wheels). Vision never touches /aux/command.
-        self._cmd_vel_pub = self.create_publisher(Twist, "/cmd_vel", 10)
+        # Robot motion for cup centring. On the real robot twist_mux OWNS /cmd_vel
+        # (it merges cmd_vel_nav prio 10 + cmd_vel_joy prio 100). Publishing straight
+        # to /cmd_vel makes vision a SECOND publisher that fights Nav2 — the robot
+        # then obeys Nav2's residual/recovery motion (e.g. driving backwards) instead
+        # of our rotation. So by default we publish to cmd_vel_vision, which twist_mux
+        # merges at priority 50 (beats nav, yields to the joystick e-stop).
+        #
+        #   With twist_mux (real robot):  cmd_vel_topic = /cmd_vel_vision  (default)
+        #   Standalone, no twist_mux   :  --ros-args -p cmd_vel_topic:=/cmd_vel
+        self._cmd_vel_topic = self.declare_parameter(
+            "cmd_vel_topic", "/cmd_vel_vision"
+        ).get_parameter_value().string_value
+        self._cmd_vel_pub = self.create_publisher(Twist, self._cmd_vel_topic, 10)
+        self.get_logger().info(f"centring will publish to: {self._cmd_vel_topic}")
 
         # Camera stays open for the node's lifetime; handlers grab frames on demand.
         self.get_logger().info("Opening camera...")
