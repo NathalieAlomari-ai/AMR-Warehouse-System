@@ -8,7 +8,8 @@
 //  Left motor driver (BTS7960 #2):
 //    RPWM=6  LPWM=7  R_EN=8  L_EN=9
 //  Right encoder:  A=20  B=21
-//  Left  encoder:  A=23  B=22  (A/B swapped so forward reads +positive)
+//  Left  encoder:  A=22  B=23  (A/B swapped so forward reads +positive —
+//                  corrected from an initial A=23/B=22 wiring that read backward)
 //  BNO055 IMU:     SDA=18  SCL=19  (Teensy 4.1 hardware I2C, Wire)
 //  Both BTS7960 VCC → Teensy 3.3V  (NOT 5V)
 //  All GND rails commoned including 24V supply −
@@ -75,14 +76,18 @@ MotorDriver leftDriver (6, 7, 8, 9);
 // All Teensy 4.1 pins support external interrupts; the Encoder library uses them.
 // Left encoder A/B are swapped so forward motion reads positive on both sides,
 // matching the positive-RPM-forward convention used by serial_bridge_node.
+// (A=22/B=23 — bench testing found the initial A=23/B=22 wiring counted backward.)
 Encoder rightEnc(20, 21);
-Encoder leftEnc (23, 22);
+Encoder leftEnc (22, 23);
 
-// motorInverted=true for left: LPWM is the forward direction on the left BTS7960,
-// so the duty sign must be negated before setSpeed().  Right: RPWM = forward.
+// motorInverted=true on BOTH sides: bench testing (equal-target 'i' command
+// still rotating the robot instead of driving straight, after the left encoder
+// wiring was already fixed) showed the right BTS7960 is also wired with RPWM as
+// the REVERSE direction, not forward as originally assumed — the right wheel
+// visibly spun backward under a positive target until this was flipped too.
 // maxRpm differs because the two motors have different free-running speeds at
 // full duty — see MAX_RPM_LEFT / MAX_RPM_RIGHT in Config.h.
-MotorController rightMotor(rightDriver, rightEnc, ENCODER_PPR, false, MAX_RPM_RIGHT);
+MotorController rightMotor(rightDriver, rightEnc, ENCODER_PPR, true, MAX_RPM_RIGHT);
 MotorController leftMotor (leftDriver,  leftEnc,  ENCODER_PPR, true,  MAX_RPM_LEFT);
 
 DriveSystem drive(leftMotor, rightMotor);

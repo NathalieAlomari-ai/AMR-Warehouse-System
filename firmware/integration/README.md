@@ -59,8 +59,13 @@ Already in use by the wheels/IMU — **do not reuse these**:
 | Right BTS7960 (RPWM/LPWM/R_EN/L_EN) | 2 / 3 / 4 / 5 |
 | Left BTS7960 (RPWM/LPWM/R_EN/L_EN) | 6 / 7 / 8 / 9 |
 | Right encoder (A/B) | 20 / 21 |
-| Left encoder (A/B) | 23 / 22 |
+| Left encoder (A/B) | 22 / 23 |
 | BNO055 IMU (SDA/SCL) | 18 / 19 |
+
+Left encoder is `22 / 23`, not the more intuitive `23 / 22` — bench testing
+found the initial `A=23 / B=22` wiring counted backward (drove the PID's
+velocity loop off a wrong-signed measurement), so the constructor in
+`main.cpp` was swapped to `Encoder leftEnc(22, 23)` to correct it.
 
 New, for the lift (the ESP32 test sketch used 18/19/21/22/32 — all of which
 collide with the list above, hence the re-map):
@@ -207,6 +212,12 @@ enable pin, so the TB6600 must be wired/jumpered to stay enabled by default.
 - `R_EN`/`L_EN` → Teensy digital pins, driven active-HIGH by `MotorDriver::begin()` / `LiftControl::begin()`.
 - `B+`/`B−` → 24V supply (thick wire).
 - `M+`/`M−` → motor/actuator terminals (thick wire; swap the two to flip default direction instead of touching code).
+  On this robot **both** drive BTS7960 units turned out to have RPWM wired as
+  the reverse direction (not forward, as first assumed for the right motor) —
+  bench testing showed the right wheel spinning backward under a positive
+  target. Rather than reswap the leads, this was corrected in software: both
+  `MotorController` instances in `main.cpp` are constructed with
+  `motorInverted=true`, which negates duty before it reaches `setSpeed()`.
 
 ### Relays (pump/valve)
 
