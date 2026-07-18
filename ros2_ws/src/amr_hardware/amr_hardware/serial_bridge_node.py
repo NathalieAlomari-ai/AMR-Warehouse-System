@@ -74,7 +74,7 @@ class SerialBridgeNode(Node):
         self.declare_parameter('wheel_base',       0.65)
         self.declare_parameter('max_linear_accel', 1.0)    # m/s²
         self.declare_parameter('max_angular_accel', 2.0)   # rad/s²
-        self.declare_parameter('ticks_per_rev',    2700)   # must match firmware Config.h ENCODER_PPR
+        self.declare_parameter('ticks_per_rev',    1000)   # must match firmware Config.h ENCODER_PPR
         # EKF handoff: set False when robot_localization/ekf_node publishes TF.
         # Two nodes broadcasting odom → base_footprint simultaneously will
         # cause a TF conflict that corrupts SLAM and Nav2 localisation.
