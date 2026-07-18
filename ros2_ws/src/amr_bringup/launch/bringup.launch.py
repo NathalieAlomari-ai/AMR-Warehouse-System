@@ -50,7 +50,7 @@ def generate_launch_description():
             'odom_frame':        'odom',
             'base_frame':        'base_footprint',
             'ticks_per_rev':     2700,
-            'publish_tf':        True,    # serial_bridge owns odom → base_footprint TF
+            'publish_tf':        False,   # EKF owns odom → base_footprint TF (IMU-fused heading)
             'flip_drive_direction': True, # LiDAR is physical front; motors are at back
         }],
     )
@@ -72,7 +72,7 @@ def generate_launch_description():
         name='ekf_node',
         output='screen',
         parameters=[os.path.join(amr_navigation_share, 'config', 'ekf.yaml'),
-                    {'publish_tf': False}],   # serial_bridge owns TF; EKF publishes /odom only
+                    {'publish_tf': True}],    # EKF owns odom → base_footprint TF (see ekf.yaml)
         remappings=[
             # ekf_node's default output topic is odometry/filtered.
             # Remap to /odom so SLAM toolbox and Nav2 receive the fused estimate
