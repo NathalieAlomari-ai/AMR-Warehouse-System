@@ -96,6 +96,8 @@ def generate_launch_description():
     # ── SLLIDAR C1 ──────────────────────────────────────────────────────────
     # frame_id must match the URDF link name 'laser' so /scan messages
     # land in the correct TF frame without a separate static_transform_publisher.
+    # Raw scan is published on /scan_raw; the box filter below republishes the
+    # cleaned scan on /scan (which AMCL and both costmaps consume).
     sllidar = Node(
         package='sllidar_ros2',
         executable='sllidar_node',
@@ -110,6 +112,20 @@ def generate_launch_description():
             'angle_compensate': True,
             'scan_mode':        'Standard',
         }],
+        remappings=[('scan', 'scan_raw')],
+    )
+
+    # ── Laser box filter ────────────────────────────────────────────────────
+    # Drops returns inside the chassis footprint (the 4 scissor-lift pillars)
+    # so they don't corrupt AMCL scan-matching or appear as costmap obstacles.
+    # /scan_raw (raw lidar) → /scan (filtered, consumed downstream).
+    laser_filter = Node(
+        package='laser_filters',
+        executable='scan_to_scan_filter_chain',
+        name='scan_to_scan_filter_chain',
+        output='screen',
+        parameters=[os.path.join(amr_navigation_share, 'config', 'laser_filter.yaml')],
+        remappings=[('scan', 'scan_raw'), ('scan_filtered', 'scan')],
     )
 
     return LaunchDescription([
@@ -118,4 +134,5 @@ def generate_launch_description():
         serial_bridge,
         ekf_node,       # must come after serial_bridge; starts TF before SLAM/Nav2
         sllidar,
+        laser_filter,   # sits between the lidar and everything that reads /scan
     ])
