@@ -153,19 +153,31 @@ def on_disconnect(client, userdata, rc):
 
 # ── MQTT client ───────────────────────────────────────────────────────────────
 
+# MQTT_ENABLED=0 disables MQTT entirely. Use it for cloud/serverless deploys
+# (Vercel), where no broker is reachable: the robot lives on a private LAN, so a
+# cloud function can never route to it. Skipping the client keeps cold starts fast
+# and the dashboard simply reports "Robot Offline".
+MQTT_ENABLED = os.environ.get('MQTT_ENABLED', '1').lower() not in ('0', 'false', 'no')
+
 mqtt_client = mqtt.Client(client_id='navixa-web', protocol=mqtt.MQTTv311)
 mqtt_client.on_connect    = on_connect
 mqtt_client.on_message    = on_message
 mqtt_client.on_disconnect = on_disconnect
 
-try:
-    mqtt_client.connect(MQTT_BROKER, MQTT_PORT, keepalive=60)
-    mqtt_client.loop_start()   # background thread — does not block Flask
-    print(f'[MQTT] Background loop started — broker={MQTT_BROKER}:{MQTT_PORT}')
-except Exception as exc:
-    # Don't crash on startup if the broker isn't running yet (common on Windows dev).
-    # The dashboard will show "Robot Offline" until the broker becomes available.
-    print(f'[MQTT] Could not connect: {exc} — dashboard will show offline status')
+if MQTT_ENABLED:
+    try:
+        # connect_async() NEVER blocks — the loop_start() thread performs the
+        # connect and keeps retrying. A blocking connect() would stall startup
+        # whenever the broker is unreachable (wrong IP, other network, or a
+        # serverless host), which on Vercel means the function times out.
+        mqtt_client.connect_async(MQTT_BROKER, MQTT_PORT, keepalive=60)
+        mqtt_client.loop_start()   # background thread — does not block Flask
+        print(f'[MQTT] Background loop started — broker={MQTT_BROKER}:{MQTT_PORT}')
+    except Exception as exc:
+        # Never crash the app because of MQTT; the dashboard shows offline instead.
+        print(f'[MQTT] Could not start client: {exc} — dashboard will show offline status')
+else:
+    print('[MQTT] MQTT_ENABLED=0 — MQTT disabled (cloud mode); robot shows offline')
 
 # ── Auth helper ───────────────────────────────────────────────────────────────
 
