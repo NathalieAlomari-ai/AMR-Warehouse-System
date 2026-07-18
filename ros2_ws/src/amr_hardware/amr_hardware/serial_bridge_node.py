@@ -65,6 +65,15 @@ class SerialBridgeNode(Node):
         # When True, negates the linear drive direction so that the LiDAR side
         # becomes the physical front.  Does NOT affect angular velocity or IMU.
         self.declare_parameter('flip_drive_direction', False)
+        # When True, negates the odometry vx sign independently of the drive
+        # command.  Needed when the firmware's motor-drive polarity and its
+        # encoder-reporting polarity disagree — e.g. after re-flashing the
+        # motor direction without flipping the encoder counting sign: the robot
+        # drives forward correctly (open loop / teleop) but reports negative vx
+        # for forward motion, which inverts the EKF and makes Nav2 drive away
+        # from the goal.  Kept separate from flip_drive_direction so drive and
+        # feedback can be corrected independently.
+        self.declare_parameter('flip_odom_direction', False)
 
         port              = self.get_parameter('port').get_parameter_value().string_value
         baudrate          = self.get_parameter('baudrate').get_parameter_value().integer_value
@@ -77,6 +86,7 @@ class SerialBridgeNode(Node):
         self._ticks_per_rev    = self.get_parameter('ticks_per_rev').get_parameter_value().integer_value
         self._publish_tf       = self.get_parameter('publish_tf').get_parameter_value().bool_value
         self._flip_drive       = self.get_parameter('flip_drive_direction').get_parameter_value().bool_value
+        self._flip_odom        = self.get_parameter('flip_odom_direction').get_parameter_value().bool_value
 
         # ── Serial ───────────────────────────────────────────────────────────
         self._ser = None
@@ -256,8 +266,8 @@ class SerialBridgeNode(Node):
         # This keeps /wheel/odometry a clean, independent source for the EKF.
         vx        = (v_left + v_right) / 2.0
         omega_enc = (v_right - v_left) / self._wheel_base
-        if self._flip_drive:
-            vx = -vx  # LiDAR-first movement reports negative RPMs; flip to positive
+        if self._flip_odom:
+            vx = -vx  # encoder reports -RPM for forward motion; flip so odom vx matches actual drive direction
 
         mid_yaw    = self._yaw + omega_enc * dt / 2.0   # midpoint integration
         self._x   += vx * math.cos(mid_yaw) * dt

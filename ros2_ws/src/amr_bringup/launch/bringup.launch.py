@@ -51,7 +51,8 @@ def generate_launch_description():
             'base_frame':        'base_footprint',
             'ticks_per_rev':     2700,
             'publish_tf':        False,   # EKF owns odom → base_footprint TF (IMU-fused heading)
-            'flip_drive_direction': False, # LiDAR is physical front; motors are at back
+            'flip_drive_direction': False, # motors: +cmd_vel.x drives LiDAR-first (teleop-verified)
+            'flip_odom_direction':  True,  # encoders report -RPM for forward; flip odom vx so EKF/Nav2 agree
         }],
     )
 
