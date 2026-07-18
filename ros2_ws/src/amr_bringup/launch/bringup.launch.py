@@ -51,7 +51,7 @@ def generate_launch_description():
             'base_frame':        'base_footprint',
             'ticks_per_rev':     2700,
             'publish_tf':        False,   # EKF owns odom → base_footprint TF (IMU-fused heading)
-            'flip_drive_direction': True, # LiDAR is physical front; motors are at back
+            'flip_drive_direction': False, # LiDAR is physical front; motors are at back
         }],
     )
 
