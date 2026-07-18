@@ -1,0 +1,25 @@
+# LaserScanBoxFilter — drops laser returns that fall INSIDE the robot chassis,
+# i.e. the 4 scissor-lift pillars that sit within the footprint and otherwise
+# get scan-matched against the map (corrupting AMCL) and inflated as phantom
+# obstacles in the local costmap.
+#
+# Wiring (see bringup.launch.py): sllidar → /scan_raw → THIS filter → /scan
+# Everything downstream (AMCL, local + global costmaps) reads /scan unchanged.
+#
+# Box is defined in the base_link frame using the chassis footprint extents
+# (chassis 640 x 540 mm → x ±0.32 m, y ±0.27 m). z is left wide so it always
+# covers the laser's mounting height. invert:false = remove points INSIDE box.
+scan_to_scan_filter_chain:
+  ros__parameters:
+    filter1:
+      name: chassis_box_filter
+      type: laser_filters/LaserScanBoxFilter
+      params:
+        box_frame: base_link
+        min_x: -0.32
+        max_x: 0.32
+        min_y: -0.27
+        max_y: 0.27
+        min_z: -1.0
+        max_z: 1.0
+        invert: false
