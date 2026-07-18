@@ -34,10 +34,11 @@ Vision is decoupled the same way (so YOLO on the Jetson can arrive later):
   publish /vision/request (std_msgs/String): "SHELF_QR" | "BOX_QR"
   wait on /vision/result (std_msgs/String):  "OK <sku>" | "FAIL"
 
-For BOX_QR the vision node is responsible for streaming its own
-"SERVO <deg>" corrections to /aux/command and only replying "OK" once the
-cup is centred — so the coordinator treats confirm+centre as one request.
-The vision_stub node satisfies this contract without a camera.
+For BOX_QR the vision node is responsible for centring the suction cup
+itself — the robot has no cup servo, so it rotates the whole robot by
+publishing Twist to /cmd_vel_vision (twist_mux priority 50, above Nav2) and
+only replies "OK" once aligned. The coordinator treats confirm+centre as one
+request. The vision_stub node satisfies this same contract without a camera.
 
 Concurrency model
 ─────────────────

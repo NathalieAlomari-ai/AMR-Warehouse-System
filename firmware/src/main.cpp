@@ -40,14 +40,14 @@ MotorDriver leftDriver (6, 7, 8, 9);
 // All Teensy 4.1 pins support external interrupts; the Encoder library uses them.
 // Left encoder A/B are swapped so forward motion reads positive on both sides,
 // matching the positive-RPM-forward convention used by serial_bridge_node.
-Encoder rightEnc(20, 21);
+Encoder rightEnc(21, 20);
 Encoder leftEnc (23, 22);
 
 // motorInverted=true for left: LPWM is the forward direction on the left BTS7960,
 // so the duty sign must be negated before setSpeed().  Right: RPWM = forward.
 // maxRpm differs because the two motors have different free-running speeds at
 // full duty — see MAX_RPM_LEFT / MAX_RPM_RIGHT in Config.h.
-MotorController rightMotor(rightDriver, rightEnc, ENCODER_PPR, false, MAX_RPM_RIGHT);
+MotorController rightMotor(rightDriver, rightEnc, ENCODER_PPR, true,  MAX_RPM_RIGHT);
 MotorController leftMotor (leftDriver,  leftEnc,  ENCODER_PPR, true,  MAX_RPM_LEFT);
 
 DriveSystem drive(leftMotor, rightMotor);

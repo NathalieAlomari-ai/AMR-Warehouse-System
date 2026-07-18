@@ -13,8 +13,9 @@ Contract it implements
   publish   /vision/result  (std_msgs/String): "OK <sku>" | "FAIL"
 
 For a BOX_QR request it also mimics the real node's job of centring the
-suction cup: it streams a few "SERVO <deg>" commands to /aux/command (the same
-single-serial-owner path the real servo loop uses) before replying "OK".
+suction cup. The robot has no cup servo — the real vision node centres by
+rotating the whole robot, publishing Twist to /cmd_vel_vision (twist_mux
+priority 50, above Nav2). The stub does the same so it is a true drop-in.
 
 Parameters
 ──────────
@@ -22,12 +23,14 @@ Parameters
   fail_shelf   (bool)       : reply FAIL to SHELF_QR (test the abort) [False]
   fail_box     (bool)       : reply FAIL to BOX_QR                    [False]
   fake_sku     (str)        : SKU string returned on success   ["SKU-TEST-01"]
+  cmd_vel_topic (str)       : centring Twist topic   ["/cmd_vel_vision"]
 """
 
 import time
 
 import rclpy
 from rclpy.node import Node
+from geometry_msgs.msg import Twist
 from std_msgs.msg import String
 
 
@@ -40,8 +43,11 @@ class VisionStub(Node):
         self.declare_parameter('fail_shelf', False)
         self.declare_parameter('fail_box', False)
         self.declare_parameter('fake_sku', 'SKU-TEST-01')
+        self.declare_parameter('cmd_vel_topic', '/cmd_vel_vision')
 
-        self._aux_pub = self.create_publisher(String, '/aux/command', 10)
+        cmd_vel_topic = self.get_parameter(
+            'cmd_vel_topic').get_parameter_value().string_value
+        self._cmd_vel_pub = self.create_publisher(Twist, cmd_vel_topic, 10)
         self._result_pub = self.create_publisher(String, '/vision/result', 10)
         self.create_subscription(String, '/vision/request', self._request_cb, 10)
 
@@ -64,17 +70,19 @@ class VisionStub(Node):
         if request == 'BOX_QR':
             if self.get_parameter('fail_box').get_parameter_value().bool_value:
                 return self._reply('FAIL')
-            self._fake_centering()          # stream a few SERVO nudges, then OK
+            self._fake_centering()          # rotate-to-centre nudges, then OK
             return self._reply(f'OK {self._sku()}')
 
         self.get_logger().warn(f'unknown vision request "{request}" — replying FAIL')
         self._reply('FAIL')
 
     def _fake_centering(self) -> None:
-        """Mimic the real servo-centring loop converging to centred (SERVO 0)."""
-        for deg in (2.0, 1.0, 0.3, 0.0):
-            self._aux_pub.publish(String(data=f'SERVO {deg:.2f}'))
-            self.get_logger().info(f'→ aux: SERVO {deg:.2f}')
+        """Mimic the real rotate-to-centre loop converging to aligned (stop)."""
+        for wz in (0.20, 0.10, 0.03, 0.0):
+            twist = Twist()
+            twist.angular.z = wz
+            self._cmd_vel_pub.publish(twist)
+            self.get_logger().info(f'→ cmd_vel_vision: wz={wz:.2f}')
             time.sleep(0.1)
 
     def _sku(self) -> str:

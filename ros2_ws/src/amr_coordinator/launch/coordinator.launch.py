@@ -9,8 +9,14 @@ Usage:
 
 This launches ONLY the coordinator (+stub). serial_bridge_node, Nav2 and the
 robot bringup are expected to already be running.
+
+The coordinator loads its surveyed mission poses + timeouts from
+config/mission_poses.yaml. Override the file with poses:=<path> once surveyed.
 """
 
+import os
+
+from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
@@ -20,17 +26,26 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     use_stub = LaunchConfiguration('use_stub')
+    poses = LaunchConfiguration('poses')
+
+    default_poses = os.path.join(
+        get_package_share_directory('amr_coordinator'),
+        'config', 'mission_poses.yaml')
 
     return LaunchDescription([
         DeclareLaunchArgument(
             'use_stub', default_value='true',
             description='Start vision_stub instead of the real YOLO vision node'),
+        DeclareLaunchArgument(
+            'poses', default_value=default_poses,
+            description='YAML of surveyed mission poses + timeouts'),
 
         Node(
             package='amr_coordinator',
             executable='coordinator_node',
             name='amr_coordinator',
             output='screen',
+            parameters=[poses],
         ),
 
         Node(
