@@ -49,9 +49,9 @@ def generate_launch_description():
             'wheel_base':        0.65,
             'odom_frame':        'odom',
             'base_frame':        'base_footprint',
-            'ticks_per_rev':     2700,  # must match firmware Config.h ENCODER_PPR=2700
+            'ticks_per_rev':     1000,
             'publish_tf':        False,   # EKF (ekf_node) owns odom → base_footprint TF (uses fused IMU yaw)
-            'flip_drive_direction': True,  # +cmd was driving the robot physically backward while odom/RViz showed forward; flip aligns motor command AND reported vx so physical motion matches odometry (and the laser at +X)
+            'flip_drive_direction': True, # LiDAR is physical front; motors are at back
         }],
     )
 
