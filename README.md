@@ -106,3 +106,24 @@ ros2 launch amr_description launch_sim.launch.py
 | `/camera/depth/points` | Orbbec Astra | `sensor_msgs/PointCloud2` |
 | `/qr_detection` | Vision node | custom |
 | `/lift_command` | Payload node | custom |
+
+---
+
+## Testing & Documentation
+
+**Start here on test day:** [`docs/TESTING_COMMANDS.md`](docs/TESTING_COMMANDS.md) — a full
+per-subsystem command reference for testing each part of the stack individually and then
+end-to-end (vision, aux hardware, drive/odometry/IMU, LiDAR, Nav2 + RViz, SLAM, MQTT, and
+the coordinator mission).
+
+> Every ROS 2 terminal must source the workspace and set a **matching** `ROS_DOMAIN_ID` on
+> the Jetson and the laptop (we use `export ROS_DOMAIN_ID=30`).
+
+| Doc | What it covers |
+|---|---|
+| [`docs/TESTING_COMMANDS.md`](docs/TESTING_COMMANDS.md) | Full per-subsystem + full-stack testing commands |
+| [`docs/RUN_full_scenario.md`](docs/RUN_full_scenario.md) | Test-day run narrative and startup order |
+| [`docs/TEST_RUNBOOK_vision.md`](docs/TEST_RUNBOOK_vision.md) | Vision node deep-dive and troubleshooting |
+| [`docs/MQTT_GUIDE.md`](docs/MQTT_GUIDE.md) | MQTT + dashboard from scratch |
+| [`docs/waypoint_navigation_guide.md`](docs/waypoint_navigation_guide.md) | Saving and navigating named waypoints |
+| [`docs/slam_mapping.md`](docs/slam_mapping.md) | Building a map with SLAM |
