@@ -51,7 +51,7 @@ def generate_launch_description():
             'base_frame':        'base_footprint',
             'ticks_per_rev':     2700,  # must match firmware Config.h ENCODER_PPR=2700
             'publish_tf':        False,   # EKF (ekf_node) owns odom → base_footprint TF (uses fused IMU yaw)
-            'flip_drive_direction': True, # LiDAR is physical front; motors are at back
+            'flip_drive_direction': False, # firmware (integration) now fixes right-motor polarity in HW; +cmd drives toward LiDAR front
         }],
     )
 
