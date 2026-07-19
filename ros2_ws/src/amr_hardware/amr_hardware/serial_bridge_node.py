@@ -74,6 +74,14 @@ class SerialBridgeNode(Node):
         # from the goal.  Kept separate from flip_drive_direction so drive and
         # feedback can be corrected independently.
         self.declare_parameter('flip_odom_direction', False)
+        # When True, negates the IMU heading (yaw) sign.  The BNO055 reports a
+        # compass-style heading that increases CLOCKWISE, which is the opposite
+        # of the ROS REP-103 convention (counter-clockwise = positive yaw).
+        # With this False, turns appear mirrored (left/right swapped) in RViz
+        # and the IMU yaw-rate disagrees with the wheel-odometry yaw-rate,
+        # confusing the EKF.  Negating the heading here fixes both the
+        # orientation quaternion and the differentiated yaw-rate at once.
+        self.declare_parameter('invert_imu_yaw', False)
 
         port              = self.get_parameter('port').get_parameter_value().string_value
         baudrate          = self.get_parameter('baudrate').get_parameter_value().integer_value
@@ -87,6 +95,8 @@ class SerialBridgeNode(Node):
         self._publish_tf       = self.get_parameter('publish_tf').get_parameter_value().bool_value
         self._flip_drive       = self.get_parameter('flip_drive_direction').get_parameter_value().bool_value
         self._flip_odom        = self.get_parameter('flip_odom_direction').get_parameter_value().bool_value
+        self._invert_imu_yaw   = self.get_parameter('invert_imu_yaw').get_parameter_value().bool_value
+        self._imu_yaw_sign     = -1.0 if self._invert_imu_yaw else 1.0
 
         # ── Serial ───────────────────────────────────────────────────────────
         self._ser = None
@@ -241,7 +251,7 @@ class SerialBridgeNode(Node):
             self._prev_time    = now
             self._prev_lcnt    = lcnt
             self._prev_rcnt    = rcnt
-            self._prev_yaw_imu = math.radians(hdg_deg)
+            self._prev_yaw_imu = self._imu_yaw_sign * math.radians(hdg_deg)
             return
 
         dt = (now - self._prev_time).nanoseconds * 1e-9
@@ -278,7 +288,7 @@ class SerialBridgeNode(Node):
         # ── IMU heading (published on /imu/data) ──────────────────────────────
         # Publish the raw BNO055 heading with NO offset subtraction.
         # robot_localization handles the relative-mode zeroing via imu0_relative.
-        yaw_imu_raw = math.radians(hdg_deg)
+        yaw_imu_raw = self._imu_yaw_sign * math.radians(hdg_deg)
         # atan2 wrap-around handles the 0°/360° boundary cleanly
         dyaw_imu    = math.atan2(
             math.sin(yaw_imu_raw - self._prev_yaw_imu),

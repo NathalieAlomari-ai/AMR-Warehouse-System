@@ -53,6 +53,7 @@ def generate_launch_description():
             'publish_tf':        False,   # EKF owns odom → base_footprint TF (IMU-fused heading)
             'flip_drive_direction': False, # motors: +cmd_vel.x drives LiDAR-first (teleop-verified)
             'flip_odom_direction':  False, # verified on hardware: forward motion already reports +vx (firmware encoder sign is correct), so no odom flip needed
+            'invert_imu_yaw':       True,  # BNO055 heading increases CW; negate to ROS CCW-positive so turns are not mirrored in RViz
         }],
     )
 
