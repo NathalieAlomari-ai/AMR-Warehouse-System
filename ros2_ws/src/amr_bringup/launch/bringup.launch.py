@@ -52,7 +52,7 @@ def generate_launch_description():
             'ticks_per_rev':     2700,
             'publish_tf':        False,   # EKF owns odom → base_footprint TF (IMU-fused heading)
             'flip_drive_direction': False, # motors: +cmd_vel.x drives LiDAR-first (teleop-verified)
-            'flip_odom_direction':  True,  # encoders report -RPM for forward; flip odom vx so EKF/Nav2 agree
+            'flip_odom_direction':  False, # verified on hardware: forward motion already reports +vx (firmware encoder sign is correct), so no odom flip needed
         }],
     )
 
