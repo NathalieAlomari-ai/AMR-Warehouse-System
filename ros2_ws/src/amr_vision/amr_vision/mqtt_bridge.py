@@ -146,18 +146,20 @@ class MqttBridge(Node):
         if self._direct_mode:
             return
         cmd = msg.data.strip().upper()
-        if cmd.startswith("LIFT"):
-            self._set_state("DELIVERING" if self._picked else "LIFTING")
-        elif cmd.startswith("STEP"):
-            self._set_state("DELIVERING" if (self._picked and "RET" in cmd) else "LIFTING")
-        elif cmd == "PUMP ON":
-            self._picked = True
-            self._set_state("LIFTING")
-        elif cmd == "PUMP OFF":
+        if cmd == "STOP":
             self._picked = False
-            self._set_state("DELIVERING")
-        elif cmd == "STOP":
             self._set_state("IDLE")
+            return
+        # PUMP ON = the box is now gripped onto the robot → we enter the
+        # "delivering" phase and stay there until the mission ends.
+        if cmd == "PUMP ON":
+            self._picked = True
+        # Any lift/stepper/gripper activity — PICK, DROP, LIFT <mm>, STEP EXT/RET,
+        # PUMP ON/OFF — maps to LIFTING while still fetching the box, and to
+        # DELIVERING once we're carrying it (through drop-off and the drive home).
+        # (The coordinator sends the firmware's PICK / DROP shortcuts, not LIFT
+        #  <mm>, at the shelf and drop-off — both are covered here.)
+        self._set_state("DELIVERING" if self._picked else "LIFTING")
 
     def _on_cmd_vel(self, _msg):
         # Robot is moving → keep the mission "alive" so idle-decay doesn't trip
