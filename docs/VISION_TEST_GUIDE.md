@@ -22,6 +22,9 @@ The coordinator asks two questions on `/vision/request`; vision answers on
   at **priority 50** (beats Nav2 = 10, yields to joystick = 100). It never opens
   serial and never sends LIFT/STEP/PUMP.
 - **Depth is not used by the mission.** Run with `DEPTH_ENABLED=0` (RGB only).
+- `CENTER_TIMEOUT` is currently **45 s** (a debug value — raised from 15 s while
+  we confirm the wheel-command chain end to end). See §7 before running this
+  through the real coordinator-driven mission, not just manual testing.
 
 ---
 
@@ -75,21 +78,48 @@ ros2 topic pub --once /vision/request std_msgs/msg/String "{data: 'SHELF_QR'}"
 
 Centring output goes to **`cmd_vel_vision`**, which only reaches the wheels when
 `twist_mux` is running. So there are **two ways to test**, and picking the wrong
-one is the #1 confusion:
+one is the #1 confusion — it's exactly what caused "BOX QR confirmed, then times
+out every time" on our first robot test.
 
 ### 4a. Centring on the FULL stack (recommended — real behaviour)
-Nav2 + twist_mux must be up (`robot_navigation.launch.py`). Then, with the robot
-free to rotate and a box QR in view:
+Nav2 + twist_mux **and serial_bridge** must be up — one launch starts all three:
 ```bash
+ros2 launch amr_bringup robot_navigation.launch.py
+```
+Then, with the robot free to rotate and a box QR in view, in another terminal:
+```bash
+ros2 run amr_vision vision_node
+```
+and a third terminal to trigger it:
+```bash
+source ~/AMR-Warehouse-System/ros2_ws/install/setup.bash
 ros2 topic echo /cmd_vel_vision &     # vision's raw command
 ros2 topic echo /cmd_vel &            # what actually reaches the wheels (via twist_mux)
 ros2 topic pub --once /vision/request std_msgs/msg/String "{data: 'BOX_QR'}"
 ```
 ✅ Box on the **RIGHT** → `angular.z` **negative** → robot turns **right** → box comes to centre → `OK <sku>`.
 
+**Watch `vision_node`'s own terminal** — it now self-diagnoses this exact mistake:
+```
+[WARN] no subscribers on /cmd_vel_vision — rotation commands will go nowhere and
+       this WILL time out. Launch 'robot_navigation.launch.py' (starts twist_mux),
+       or override with --ros-args -p cmd_vel_topic:=/cmd_vel for a standalone test.
+[INFO] centring: FINE (QR) offset=+42px correction=+0.3360 stable=0/10 subs=1
+[INFO] centring: FINE (QR) offset=+18px correction=+0.1440 stable=0/10 subs=1
+[INFO] centring: FINE (QR) offset=-3px  correction=-0.0240 stable=6/10 subs=1
+```
+That progress line prints **once a second** during centring — read it like this:
+
+| What you see | Means |
+|---|---|
+| `subs=0` | Nothing is subscribed to `cmd_vel_vision` → twist_mux isn't running → §4a fix above, or use §4b |
+| `subs≥1`, offset **static/growing**, `stable` stuck at 0 | Command is being sent and something IS subscribed, but the robot doesn't visibly turn → go straight to §7's wheel-command chain check (twist_mux → `/cmd_vel` → serial_bridge → Teensy) |
+| `subs≥1`, offset **shrinking**, `stable` climbing | Working — just give it time (up to `CENTER_TIMEOUT`) |
+| offset sign flips back and forth, never converges | Likely `INVERT_TURN` wrong, or `MAX_TURN_RATE` too aggressive → see below |
+
 ### 4b. Centring STANDALONE (no Nav2/twist_mux)
-Nothing forwards `cmd_vel_vision`, so the robot won't move unless you point vision
-straight at `/cmd_vel`:
+For a bench test of vision alone, with `serial_bridge_node` already running so
+`/cmd_vel` actually reaches the Teensy:
 ```bash
 ros2 run amr_vision vision_node --ros-args -p cmd_vel_topic:=/cmd_vel
 # then, in terminal B:
@@ -109,8 +139,9 @@ Then **Ctrl+C and restart** the node (no rebuild). Other tuning in the same file
 
 ## 5. Test 4 — the WHOLE vision scenario at once (SHELF then BOX)
 
-With `vision_node` running (full stack for real rotation), run this from a second
-terminal. It mimics exactly what the coordinator does, back-to-back:
+Needs the **full stack** (§4a) for the rotation to actually move the robot:
+`robot_navigation.launch.py` running, then `vision_node`. Run this from a third
+terminal — it mimics exactly what the coordinator does, back-to-back:
 ```bash
 source ~/AMR-Warehouse-System/ros2_ws/install/setup.bash
 ros2 topic echo /vision/result &
@@ -140,17 +171,70 @@ ros2 topic echo /cmd_vel_vision      # centring rotation
 
 ---
 
-## 7. Troubleshooting
+## 7. "Wheels not moving, no command received" — the full chain
+
+The rotation command's path is: `vision_node` → `cmd_vel_vision` → `twist_mux`
+→ `/cmd_vel` → `serial_bridge_node` → Teensy. Check each link **in order** and
+stop at the first failure — that's the fix.
+
+```bash
+# 1. Is twist_mux even running?
+ros2 node list | grep twist_mux
+```
+❌ nothing → you only started `vision_node`, not the nav stack. Run:
+```bash
+ros2 launch amr_bringup robot_navigation.launch.py
+```
+
+```bash
+# 2. Is twist_mux actually forwarding to /cmd_vel?
+ros2 topic echo /cmd_vel
+# ...then trigger BOX_QR and watch for Twist messages
+```
+❌ nothing here even with twist_mux running → check
+`ros2_ws/src/amr_navigation/config/twist_mux.yaml` has the `vision:` entry
+(priority 50, topic `cmd_vel_vision`), and that `navigation.launch.py` remaps
+twist_mux's output to `/cmd_vel` (not left on an internal `cmd_vel_out`).
+
+```bash
+# 3. Is serial_bridge running and does it see /cmd_vel?
+ros2 node list | grep serial_bridge
+ros2 topic info /cmd_vel     # subscriber count should be ≥1 once serial_bridge is up
+```
+❌ not running → nothing relays the command to the Teensy. It's started by the
+same launch as step 1 — if it's still missing, check that launch's log for a crash.
+
+```bash
+# 4. Is the Teensy actually connected?
+```
+Check `serial_bridge_node`'s own startup log:
+- `Opened serial port /dev/ttyACM0` ✅
+- `Could not open serial port ...` ❌ →
+  `ls /dev/ttyACM* /dev/ttyUSB*`, check the USB cable, check you're in the
+  `dialout` group, check the Teensy is flashed and powered.
+
+**Most likely culprit:** step 1. `robot_navigation.launch.py` starts twist_mux
+**and** serial_bridge together — if that launch wasn't running, both the
+centring rotation *and* the wheel relay are simultaneously missing, which
+matches "BOX QR confirmed, then times out every time."
+
+---
+
+## 8. Troubleshooting
 
 | Symptom | Fix |
 |---|---|
 | Robot rotates wrong way on BOX_QR | `INVERT_TURN = True`, restart node |
-| Robot doesn't move on BOX_QR | You're standalone without twist_mux → use `-p cmd_vel_topic:=/cmd_vel`, or bring up Nav2 |
+| Robot doesn't move on BOX_QR, `subs=0` in the log | twist_mux isn't running → §4a, or use §4b's `cmd_vel_topic` override |
+| Robot doesn't move on BOX_QR, `subs≥1` in the log | Command IS being sent — walk the chain in §7 (twist_mux → `/cmd_vel` → serial_bridge → Teensy) |
 | Robot drives **backward** on BOX_QR | Old bug (vision fighting Nav2). Confirm `cmd_vel_topic=/cmd_vel_vision` and twist_mux has the `vision` input (priority 50) |
-| `FAIL` on SHELF/BOX | QR bigger/flatter/lit; verify with `scripts/live_qr_test.py`; raise `SHELF_QR_TIMEOUT`/`BOX_QR_TIMEOUT` but keep `BOX_QR_TIMEOUT + CENTER_TIMEOUT < 30 s` |
+| `FAIL` on SHELF/BOX | QR bigger/flatter/lit; verify with `scripts/live_qr_test.py` |
+| Testing manually with `CENTER_TIMEOUT` raised above ~18s | Fine for manual `ros2 topic pub` testing. Before running through the **real coordinator-driven mission**, either lower `CENTER_TIMEOUT` back down, or raise the coordinator's own timeout to match: `ros2 run amr_coordinator coordinator_node --ros-args -p vision_timeout:=60.0` — otherwise the coordinator aborts and sends STOP at its default 30s while vision is still trying in the background |
 | Camera segfault / USB transfer timeout | `export DEPTH_ENABLED=0`; depth needs a powered USB hub (mission never uses depth) |
 | `FileNotFoundError: best.pt` | `export AMR_MODEL_PATH=~/AMR-Warehouse-System/ros2_ws/src/amr_vision/models/best.pt` |
 | Node runs old code after edit | rebuilt without `--symlink-install`, or edited install/ not src/ → rebuild once with `--symlink-install`, then edits need only a restart |
 
-**Golden rule:** `ros2 topic echo /vision/result` in a spare terminal. If `OK`
-comes back, detection works and any remaining issue is motion (twist_mux / direction).
+**Golden rule:** watch `vision_node`'s own terminal during BOX_QR — the 1 Hz
+`centring: ... subs=N` line now tells you directly whether the problem is
+detection (offset never appears), motion routing (`subs=0`), or something
+downstream of `/cmd_vel` (`subs≥1` but the robot doesn't turn).
