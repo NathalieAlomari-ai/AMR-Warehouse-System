@@ -100,11 +100,20 @@ ALIGN_STABLE_FRAMES = 10
 # IMPORTANT: these MUST stay comfortably under the coordinator's `vision_timeout`
 # (default 30.0 s), which it applies to BOTH SHELF_QR and BOX_QR. For BOX_QR the
 # coordinator waits ONE timeout for read+centre combined, so BOX_QR_TIMEOUT +
-# CENTER_TIMEOUT must be < 30 s or the coordinator aborts mid-centre. If real-world
-# centring needs longer, raise the coordinator's `vision_timeout` param to match.
-SHELF_QR_TIMEOUT = 25.0   # < coordinator vision_timeout (30 s)
-BOX_QR_TIMEOUT   = 10.0   # to read the box QR
-CENTER_TIMEOUT   = 15.0   # to centre the cup  (10 + 15 = 25 s < 30 s)
+# CENTER_TIMEOUT must be < the coordinator's vision_timeout or it aborts mid-centre.
+#
+# CENTER_TIMEOUT is currently raised to 45s for DEBUGGING (twist_mux/wheel wiring
+# not yet confirmed) — that now EXCEEDS the coordinator's 30s default. Before
+# running through the real mission (not manual `ros2 topic pub` testing), either
+# lower CENTER_TIMEOUT back under ~18s, OR raise the coordinator's vision_timeout
+# to match:
+#   ros2 run amr_coordinator coordinator_node --ros-args -p vision_timeout:=60.0
+# Otherwise the coordinator sends STOP and starts the abort path at 30s while
+# vision is still trying to centre in the background — the two nodes end up
+# disagreeing about whether the mission is still running.
+SHELF_QR_TIMEOUT = 25.0
+BOX_QR_TIMEOUT   = 10.0
+CENTER_TIMEOUT   = 45.0   # DEBUG value — see note above before the real mission
 
 # Max in-place rotation speed while centring (rad/s). Caps the VisualServo
 # correction so a large pixel offset can't spin the robot dangerously fast.
