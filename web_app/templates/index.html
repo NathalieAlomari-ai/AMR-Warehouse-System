@@ -48,17 +48,32 @@
     <div class="container hero-container">
 
       <div class="hero-logo-wrap" aria-hidden="true">
-        <svg class="hero-logo-svg" viewBox="0 0 200 200" fill="none">
-          <rect x="8" y="8" width="184" height="184" rx="28" stroke="#FF6B00" stroke-width="3" fill="rgba(10,10,10,0.6)"/>
-          <line x1="52" y1="44" x2="52"  y2="156" stroke="white" stroke-width="22" stroke-linecap="round"/>
-          <line x1="148" y1="44" x2="148" y2="156" stroke="white" stroke-width="22" stroke-linecap="round"/>
-          <line x1="52" y1="44" x2="148" y2="156" stroke="white" stroke-width="18" stroke-linecap="round"/>
-          <circle cx="52"  cy="58"  r="14" fill="#0A0A0A" stroke="#FF6B00" stroke-width="4"/>
-          <circle cx="52"  cy="58"  r="6"  fill="#FF6B00"/>
-          <circle cx="100" cy="100" r="14" fill="#0A0A0A" stroke="#FF6B00" stroke-width="4"/>
-          <circle cx="100" cy="100" r="6"  fill="#FF6B00"/>
-          <circle cx="148" cy="142" r="14" fill="#0A0A0A" stroke="#FF6B00" stroke-width="4"/>
-          <circle cx="148" cy="142" r="6"  fill="#FF6B00"/>
+        <!-- Navixa diamond: silver left half + orange right half, with the centre
+             circle and vertical divider punched out (page background shows through). -->
+        <svg class="hero-logo-svg" viewBox="0 0 64 64" fill="none">
+          <defs>
+            <linearGradient id="nvxHeroSilver" x1="16" y1="6" x2="26" y2="58" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#FFFFFF"/><stop offset="1" stop-color="#8A8A8A"/>
+            </linearGradient>
+            <linearGradient id="nvxHeroOrange" x1="40" y1="6" x2="48" y2="58" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#FFA800"/><stop offset="1" stop-color="#FF4500"/>
+            </linearGradient>
+            <mask id="nvxHeroMask">
+              <rect width="64" height="64" fill="#fff"/>
+              <circle cx="32" cy="32" r="9.5" fill="#000"/>
+              <rect x="30.9" y="0" width="2.2" height="64" fill="#000"/>
+            </mask>
+            <clipPath id="nvxHeroL"><rect x="0"  y="0" width="32" height="64"/></clipPath>
+            <clipPath id="nvxHeroR"><rect x="32" y="0" width="32" height="64"/></clipPath>
+          </defs>
+          <g mask="url(#nvxHeroMask)">
+            <g clip-path="url(#nvxHeroL)">
+              <rect x="12.2" y="12.2" width="39.6" height="39.6" rx="5" transform="rotate(45 32 32)" fill="url(#nvxHeroSilver)"/>
+            </g>
+            <g clip-path="url(#nvxHeroR)">
+              <rect x="12.2" y="12.2" width="39.6" height="39.6" rx="5" transform="rotate(45 32 32)" fill="url(#nvxHeroOrange)"/>
+            </g>
+          </g>
         </svg>
       </div>
 
@@ -328,7 +343,7 @@
 
           <div class="ps-card"
                data-name="Abdalla Elradi"
-               data-role="Vision · Battery · UI · Web"
+               data-role="Battery Pack · Vision &amp; Software Subsystem"
                data-dept="Informatics Engineering"
                data-linkedin="https://www.linkedin.com/in/abdalla-elradi"
                data-github="https://github.com/a-elradi"
@@ -350,7 +365,7 @@
 
           <div class="ps-card"
                data-name="Zahra Jassim"
-               data-role="Lifting &amp; Suction"
+               data-role="Lifting &amp; Suction Subsystem"
                data-dept="Informatics Engineering"
                data-linkedin="https://www.linkedin.com/in/zahra-jasim"
                data-github="https://github.com/nunzahkii"

@@ -1,0 +1,152 @@
+# =============================================================================
+# ekf.yaml — robot_localization EKF for AMR differential-drive warehouse robot
+# ROS 2 Humble
+#
+# Sensor fusion strategy
+# ──────────────────────
+#  odom0  (/wheel/odometry)  Encoder-only kinematics. Trust vx (linear velocity).
+#                            Wheel yaw is IGNORED here: gearbox backlash + slip
+#                            make encoder-derived angular velocity unreliable.
+#
+#  imu0   (/imu/data)        BNO055 in OPERATION_MODE_IMUPLUS (accel + gyro only).
+#                            Magnetometer excluded: 24 V drive motors corrupt it.
+#                            Trust yaw orientation and vyaw (angular velocity Z).
+#                            imu0_relative: true → heading zeroed at boot, not a
+#                            compass reading. robot_localization subtracts the
+#                            first measurement automatically.
+#
+# TF
+# ──
+#  This node owns the odom → base_footprint transform.
+#  serial_bridge_node MUST have publish_tf: false to avoid a TF conflict.
+#
+# State vector (15 elements)
+# ──────────────────────────
+#  [x, y, z, roll, pitch, yaw, vx, vy, vz, vroll, vpitch, vyaw, ax, ay, az]
+# =============================================================================
+
+ekf_node:
+  ros__parameters:
+
+    # ── Frames ───────────────────────────────────────────────────────────────
+    world_frame:     odom          # EKF outputs pose in this frame
+    odom_frame:      odom
+    base_link_frame: base_footprint  # matches serial_bridge_node base_frame param
+    map_frame:       map
+
+    # ── General ──────────────────────────────────────────────────────────────
+    frequency:   30.0    # Hz — comfortably above odom (20 Hz) and IMU (20 Hz serial)
+    sensor_timeout: 0.1  # seconds before a sensor is considered stale
+    two_d_mode: true     # ignore z, roll, pitch — flat warehouse floor
+
+    # Publish the filtered odometry and the odom → base_footprint TF.
+    # serial_bridge_node must have publish_tf: false (see bringup.launch.py).
+    publish_tf:        true
+    publish_acceleration: false
+
+    # ── odom0: Raw wheel encoder odometry ────────────────────────────────────
+    odom0: /wheel/odometry
+
+    # State vector columns to use from this sensor:
+    #   [x,     y,     z,     roll,  pitch, yaw,   vx,    vy,    vz,
+    #    vroll, vpitch, vyaw,  ax,    ay,    az   ]
+    odom0_config: [false, false, false,
+                   false, false, false,
+                   true,  false, false,
+                   false, false, false,
+                   false, false, false]
+    #
+    # Rationale:
+    #   vx = true   Encoder linear velocity is reliable for straight-line travel.
+    #   yaw = false Encoder yaw is corrupted by gearbox backlash; IMU owns heading.
+    #   All others = false for a non-holonomic 2D robot.
+
+    odom0_differential: false  # odometry provides absolute pose in odom frame
+    odom0_relative:     false
+    odom0_queue_size:   10
+    odom0_pose_rejection_threshold:  5.0  # Mahalanobis distance outlier gate
+    odom0_twist_rejection_threshold: 5.0
+
+    # ── imu0: BNO055 IMU (IMUPLUS: accel + gyro, no magnetometer) ────────────
+    imu0: /imu/data
+
+    # State vector columns to use from this sensor:
+    #   [x,     y,     z,     roll,  pitch, yaw,   vx,    vy,    vz,
+    #    vroll, vpitch, vyaw,  ax,    ay,    az   ]
+    imu0_config: [false, false, false,
+                  false, false, true,
+                  false, false, false,
+                  false, false, true,
+                  false, false, false]
+    #
+    # Rationale:
+    #   yaw  = true  BNO055 gyro-fused heading is our best rotation source.
+    #   vyaw = true  Gyro angular rate is accurate and low-latency.
+    #   ax/ay = false  Linear acceleration unavailable via the current serial
+    #                  protocol (Teensy only sends heading angle, not raw accel).
+    #                  Covariance[0]=-1 in the Imu message signals EKF to skip it.
+
+    # CRITICAL: heading is relative (starts at 0 on boot) because IMUPLUS has
+    # no magnetometer. The EKF subtracts the first orientation reading from all
+    # subsequent ones, anchoring the heading reference to the robot's boot pose.
+    imu0_relative:     true
+    imu0_differential: false
+    imu0_queue_size:   10
+
+    # Remove the ~9.81 m/s² gravitational component from linear_acceleration.
+    # Has no effect while ax/ay are false in imu0_config, but costs nothing
+    # and is correct if linear acceleration is added to the fusion later.
+    imu0_remove_gravitational_acceleration: true
+
+    imu0_pose_rejection_threshold:  3.0  # tighter gate: we trust the IMU more
+    imu0_twist_rejection_threshold: 3.0
+
+    # ── Process Noise Covariance Q (15 × 15, row-major) ──────────────────────
+    # Represents how much we trust the motion model between sensor updates.
+    # Higher value → less trust in the model → sensor updates dominate.
+    #
+    # Tuning guide for this robot:
+    #   x, y     0.05  Encoder position drifts slowly on a clean warehouse floor.
+    #   yaw      0.06  Gyro drift is small; SLAM will correct long-term.
+    #   vx       0.025 Motor speed is well-controlled.
+    #   vyaw     0.02  Gyro rate is very accurate short-term.
+    #   ax, ay   0.01  Not used in fusion; keep small to avoid filter divergence.
+    process_noise_covariance: [
+      0.05,  0.0,   0.0,   0.0,   0.0,   0.0,   0.0,    0.0,    0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,
+      0.0,   0.05,  0.0,   0.0,   0.0,   0.0,   0.0,    0.0,    0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,
+      0.0,   0.0,   0.06,  0.0,   0.0,   0.0,   0.0,    0.0,    0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,
+      0.0,   0.0,   0.0,   0.03,  0.0,   0.0,   0.0,    0.0,    0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,
+      0.0,   0.0,   0.0,   0.0,   0.03,  0.0,   0.0,    0.0,    0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,
+      0.0,   0.0,   0.0,   0.0,   0.0,   0.06,  0.0,    0.0,    0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,
+      0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.025,  0.0,    0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,
+      0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,    0.025,  0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,
+      0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,    0.0,    0.04,  0.0,   0.0,   0.0,   0.0,   0.0,   0.0,
+      0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,    0.0,    0.0,   0.01,  0.0,   0.0,   0.0,   0.0,   0.0,
+      0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,    0.0,    0.0,   0.0,   0.01,  0.0,   0.0,   0.0,   0.0,
+      0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,    0.0,    0.0,   0.0,   0.0,   0.02,  0.0,   0.0,   0.0,
+      0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,    0.0,    0.0,   0.0,   0.0,   0.0,   0.01,  0.0,   0.0,
+      0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,    0.0,    0.0,   0.0,   0.0,   0.0,   0.0,   0.01,  0.0,
+      0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,    0.0,    0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.015
+    ]
+
+    # ── Initial State Covariance P₀ (15 × 15, row-major) ─────────────────────
+    # Uncertainty in the state at t=0.
+    # Robot is placed at a known starting position → very small initial uncertainty.
+    # If the robot's starting pose is not well-known, increase x/y/yaw entries.
+    initial_estimate_covariance: [
+      1.0e-9, 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+      0.0,    1.0e-9, 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+      0.0,    0.0,    1.0e-9, 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+      0.0,    0.0,    0.0,    1.0e-9, 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+      0.0,    0.0,    0.0,    0.0,    1.0e-9, 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+      0.0,    0.0,    0.0,    0.0,    0.0,    1.0e-9, 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+      0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    1.0e-9, 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+      0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    1.0e-9, 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+      0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    1.0e-9, 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+      0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    1.0e-9, 0.0,    0.0,    0.0,    0.0,    0.0,
+      0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    1.0e-9, 0.0,    0.0,    0.0,    0.0,
+      0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    1.0e-9, 0.0,    0.0,    0.0,
+      0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    1.0e-9, 0.0,    0.0,
+      0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    1.0e-9, 0.0,
+      0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    1.0e-9
+    ]

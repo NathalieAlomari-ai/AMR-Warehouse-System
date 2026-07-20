@@ -16,17 +16,30 @@
       <div class="login-brand-inner">
 
         <a href="{{ url_for('index') }}" class="login-brand-logo">
-          <svg viewBox="0 0 48 48" fill="none" aria-hidden="true">
-            <rect x="2" y="2" width="44" height="44" rx="10" stroke="#FF6B00" stroke-width="1.5" fill="rgba(0,0,0,0.3)"/>
-            <line x1="14" y1="10" x2="14" y2="38" stroke="white" stroke-width="5" stroke-linecap="round"/>
-            <line x1="34" y1="10" x2="34" y2="38" stroke="white" stroke-width="5" stroke-linecap="round"/>
-            <line x1="14" y1="10" x2="34" y2="38" stroke="white" stroke-width="4.5" stroke-linecap="round"/>
-            <circle cx="14" cy="12" r="3.5" fill="#0A0A0A" stroke="#FF6B00" stroke-width="1.5"/>
-            <circle cx="14" cy="12" r="1.6" fill="#FF6B00"/>
-            <circle cx="24" cy="24" r="3.5" fill="#0A0A0A" stroke="#FF6B00" stroke-width="1.5"/>
-            <circle cx="24" cy="24" r="1.6" fill="#FF6B00"/>
-            <circle cx="34" cy="36" r="3.5" fill="#0A0A0A" stroke="#FF6B00" stroke-width="1.5"/>
-            <circle cx="34" cy="36" r="1.6" fill="#FF6B00"/>
+          <svg viewBox="0 0 64 64" fill="none" aria-hidden="true">
+            <defs>
+              <linearGradient id="nvxLoginSilver" x1="16" y1="6" x2="26" y2="58" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#FFFFFF"/><stop offset="1" stop-color="#8A8A8A"/>
+              </linearGradient>
+              <linearGradient id="nvxLoginOrange" x1="40" y1="6" x2="48" y2="58" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#FFA800"/><stop offset="1" stop-color="#FF4500"/>
+              </linearGradient>
+              <mask id="nvxLoginMask">
+                <rect width="64" height="64" fill="#fff"/>
+                <circle cx="32" cy="32" r="9.5" fill="#000"/>
+                <rect x="30.9" y="0" width="2.2" height="64" fill="#000"/>
+              </mask>
+              <clipPath id="nvxLoginL"><rect x="0"  y="0" width="32" height="64"/></clipPath>
+              <clipPath id="nvxLoginR"><rect x="32" y="0" width="32" height="64"/></clipPath>
+            </defs>
+            <g mask="url(#nvxLoginMask)">
+              <g clip-path="url(#nvxLoginL)">
+                <rect x="12.2" y="12.2" width="39.6" height="39.6" rx="5" transform="rotate(45 32 32)" fill="url(#nvxLoginSilver)"/>
+              </g>
+              <g clip-path="url(#nvxLoginR)">
+                <rect x="12.2" y="12.2" width="39.6" height="39.6" rx="5" transform="rotate(45 32 32)" fill="url(#nvxLoginOrange)"/>
+              </g>
+            </g>
           </svg>
           <span>Navixa</span>
         </a>

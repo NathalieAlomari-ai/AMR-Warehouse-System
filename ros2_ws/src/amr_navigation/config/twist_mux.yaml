@@ -1,0 +1,20 @@
+twist_mux:
+  ros__parameters:
+    topics:
+      joystick:
+        topic   : cmd_vel_joy
+        timeout : 0.5
+        priority: 100
+      # Vision cup-centring (BOX_QR). Must outrank navigation: while vision is
+      # centring, Nav2 has finished its goal but its residual/recovery commands
+      # would otherwise fight the rotation (robot drives backwards instead of
+      # turning). Yields to the joystick so a human can always override.
+      # vision_node publishes here via its `cmd_vel_topic` param.
+      vision:
+        topic   : cmd_vel_vision
+        timeout : 0.5
+        priority: 50
+      navigation:
+        topic   : cmd_vel_nav
+        timeout : 0.5
+        priority: 10

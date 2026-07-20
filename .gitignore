@@ -10,6 +10,7 @@ __pycache__/
 
 # PlatformIO
 firmware/.pio/
+firmware/**/.pio/
 
 # OS
 .DS_Store

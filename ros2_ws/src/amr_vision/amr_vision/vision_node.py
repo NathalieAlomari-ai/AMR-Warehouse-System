@@ -66,7 +66,25 @@ from box_detector  import BoxDetector
 from visual_servo  import VisualServo
 
 # ── CONFIG ────────────────────────────────────────────────────────────────────
-MODEL_PATH = Path(__file__).parent.parent / "models" / "best.pt"
+def _resolve_model_path() -> Path:
+    """Locate best.pt whether run as a plain script, via `ros2 run` with a
+    --symlink-install build, or via a plain colcon build (where __file__ lives
+    under build/ or install/, not the source tree). Override with AMR_MODEL_PATH."""
+    env = os.getenv("AMR_MODEL_PATH")
+    if env:
+        return Path(env).expanduser()
+    here = Path(__file__).resolve()            # resolve() follows symlink-install
+    local = here.parent.parent / "models" / "best.pt"
+    if local.is_file():
+        return local
+    # Plain colcon build: walk up and find the source checkout's models/best.pt.
+    for parent in here.parents:
+        cand = parent / "src" / "amr_vision" / "models" / "best.pt"
+        if cand.is_file():
+            return cand
+    return local   # not found — return the expected path for a clear error
+
+MODEL_PATH = _resolve_model_path()
 
 # A decoded QR value must repeat this many consecutive frames before we trust it.
 # Replaces QRDetector's expected_id confirmation — we report the value we read,
@@ -126,9 +144,20 @@ class VisionNode(Node):
         self._box    = BoxDetector(self._model)
         self._servo  = VisualServo()
 
-        # Robot motion for cup centring goes through /cmd_vel (serial_bridge owns
-        # the wheels). Vision never touches /aux/command.
-        self._cmd_vel_pub = self.create_publisher(Twist, "/cmd_vel", 10)
+        # Robot motion for cup centring. On the real robot twist_mux OWNS /cmd_vel
+        # (it merges cmd_vel_nav prio 10 + cmd_vel_joy prio 100). Publishing straight
+        # to /cmd_vel makes vision a SECOND publisher that fights Nav2 — the robot
+        # then obeys Nav2's residual/recovery motion (e.g. driving backwards) instead
+        # of our rotation. So by default we publish to cmd_vel_vision, which twist_mux
+        # merges at priority 50 (beats nav, yields to the joystick e-stop).
+        #
+        #   With twist_mux (real robot):  cmd_vel_topic = /cmd_vel_vision  (default)
+        #   Standalone, no twist_mux   :  --ros-args -p cmd_vel_topic:=/cmd_vel
+        self._cmd_vel_topic = self.declare_parameter(
+            "cmd_vel_topic", "/cmd_vel_vision"
+        ).get_parameter_value().string_value
+        self._cmd_vel_pub = self.create_publisher(Twist, self._cmd_vel_topic, 10)
+        self.get_logger().info(f"centring will publish to: {self._cmd_vel_topic}")
 
         # Camera stays open for the node's lifetime; handlers grab frames on demand.
         self.get_logger().info("Opening camera...")
