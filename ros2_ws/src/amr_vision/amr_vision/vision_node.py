@@ -240,9 +240,23 @@ class VisionNode(Node):
         This is the Stage-3 loop from vision_main.py, but the correction now drives
         Twist.angular.z on /cmd_vel instead of a SERVO string, and there is no GRIP
         handoff (grip is the coordinator's job now)."""
+        # If nobody is listening on cmd_vel_topic, every rotation command we send is
+        # a no-op and this loop is GUARANTEED to time out — most commonly because
+        # twist_mux (started by robot_navigation.launch.py) isn't running. Catching
+        # this up front turns a silent 15s timeout into an immediate, actionable log.
+        n_subs = self._cmd_vel_pub.get_subscription_count()
+        if n_subs == 0:
+            self.get_logger().warn(
+                f"no subscribers on {self._cmd_vel_topic} — rotation commands will "
+                f"go nowhere and this WILL time out. Launch "
+                f"'ros2 launch amr_bringup robot_navigation.launch.py' (starts "
+                f"twist_mux), or override with "
+                f"--ros-args -p cmd_vel_topic:=/cmd_vel for a standalone bench test.")
+
         self._servo.reset()
         align_count     = 0
         last_cmd_send   = 0.0
+        last_log        = 0.0
         cmd_interval    = 1.0 / SERVO_SEND_HZ
         deadline        = time.time() + CENTER_TIMEOUT
         anchor_ema      = None    # smoothed anchor pixel (EMA), see ANCHOR_SMOOTHING
@@ -299,6 +313,16 @@ class VisionNode(Node):
                 rgb,
                 f"{mode} off={offset_px:+d}px corr={correction:+.4f} "
                 f"stable={align_count}/{ALIGN_STABLE_FRAMES}")
+
+            # Progress heartbeat (~1 Hz) so a timeout log tells you WHY: shrinking
+            # offset = working but slow/needs more time; static/growing offset with
+            # subs=0 = twist_mux not running; static offset with subs>0 = check
+            # INVERT_TURN or physical obstruction.
+            if now - last_log >= 1.0:
+                self.get_logger().info(
+                    f"centring: {mode} offset={offset_px:+d}px correction={correction:+.4f} "
+                    f"stable={align_count}/{ALIGN_STABLE_FRAMES} subs={n_subs}")
+                last_log = now
 
             # Require a stable FINE (QR-anchored) lock before declaring centred.
             if align_count >= ALIGN_STABLE_FRAMES and qr_cx is not None:
