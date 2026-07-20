@@ -49,9 +49,11 @@ def generate_launch_description():
             'wheel_base':        0.65,
             'odom_frame':        'odom',
             'base_frame':        'base_footprint',
-            'ticks_per_rev':     1000,
-            'publish_tf':        False,   # EKF (ekf_node) owns odom → base_footprint TF (uses fused IMU yaw)
-            'flip_drive_direction': True, # LiDAR is physical front; motors are at back
+            'ticks_per_rev':     2700,
+            'publish_tf':        False,   # EKF owns odom → base_footprint TF (IMU-fused heading)
+            'flip_drive_direction': False, # motors: +cmd_vel.x drives LiDAR-first (teleop-verified)
+            'flip_odom_direction':  False, # verified on hardware: forward motion already reports +vx (firmware encoder sign is correct), so no odom flip needed
+            'invert_imu_yaw':       True,  # BNO055 heading increases CW; negate to ROS CCW-positive so turns are not mirrored in RViz
         }],
     )
 
@@ -71,7 +73,8 @@ def generate_launch_description():
         executable='ekf_node',
         name='ekf_node',
         output='screen',
-        parameters=[os.path.join(amr_navigation_share, 'config', 'ekf.yaml')],   # ekf.yaml sets publish_tf: true — EKF owns odom → base_footprint TF
+        parameters=[os.path.join(amr_navigation_share, 'config', 'ekf.yaml'),
+                    {'publish_tf': True}],    # EKF owns odom → base_footprint TF (see ekf.yaml)
         remappings=[
             # ekf_node's default output topic is odometry/filtered.
             # Remap to /odom so SLAM toolbox and Nav2 receive the fused estimate
