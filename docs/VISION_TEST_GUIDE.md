@@ -140,8 +140,23 @@ Then **Ctrl+C and restart** the node (no rebuild). Other tuning in the same file
 ## 5. Test 4 — the WHOLE vision scenario at once (SHELF then BOX)
 
 Needs the **full stack** (§4a) for the rotation to actually move the robot:
-`robot_navigation.launch.py` running, then `vision_node`. Run this from a third
-terminal — it mimics exactly what the coordinator does, back-to-back:
+`robot_navigation.launch.py` running, then `vision_node`.
+
+> ⚠️ **`vision_node` MUST already be running and past "Ready" in its own
+> terminal before you run the script below.** Skipping this is the single most
+> common mistake with this test — you'll get
+> `WARNING: topic [/vision/result] does not appear to be published yet` and the
+> `ros2 topic pub` will hang forever on `Waiting for at least 1 matching
+> subscription(s)...`. Neither is a bug; it just means nothing is listening yet.
+> One-line check before you run anything else:
+> ```bash
+> ros2 node list | grep vision_node
+> ```
+> If that prints nothing, go start it first (§3) and wait for
+> `Ready — waiting on /vision/request` before continuing.
+
+Once confirmed, run this from a **separate** terminal — it mimics exactly what
+the coordinator does, back-to-back:
 ```bash
 source ~/AMR-Warehouse-System/ros2_ws/install/setup.bash
 ros2 topic echo /vision/result &
@@ -224,6 +239,7 @@ matches "BOX QR confirmed, then times out every time."
 
 | Symptom | Fix |
 |---|---|
+| `WARNING: topic [...] does not appear to be published yet`, or `ros2 topic pub` hangs on `Waiting for at least 1 matching subscription(s)...` | `vision_node` isn't running yet. Start it first (§3), wait for `Ready — waiting on /vision/request`, **then** run the test in a separate terminal. Check with `ros2 node list \| grep vision_node`. |
 | Robot rotates wrong way on BOX_QR | `INVERT_TURN = True`, restart node |
 | Robot doesn't move on BOX_QR, `subs=0` in the log | twist_mux isn't running → §4a, or use §4b's `cmd_vel_topic` override |
 | Robot doesn't move on BOX_QR, `subs≥1` in the log | Command IS being sent — walk the chain in §7 (twist_mux → `/cmd_vel` → serial_bridge → Teensy) |
