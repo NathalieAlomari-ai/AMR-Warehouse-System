@@ -116,7 +116,11 @@ class SerialBridgeNode(Node):
         self._imu_yaw_sign     = -1.0 if self._invert_imu_yaw else 1.0
 
         # ── Serial ───────────────────────────────────────────────────────────
+        # Keep port/baudrate so the 1 Hz watchdog can re-open after a drop.
+        self._port     = port
+        self._baudrate = baudrate
         self._ser = None
+        self._serial_error_logged = False    # rate-limit "cannot open" spam
         self._open_serial(port, baudrate)
 
         # ── Velocity smoother state ───────────────────────────────────────────
@@ -161,6 +165,7 @@ class SerialBridgeNode(Node):
         self.create_subscription(String, '/aux/command', self._aux_command_cb, 10)
         self.create_timer(0.01, self._read_serial)    # 100 Hz serial read
         self.create_timer(0.02, self._smoother_cb)    #  50 Hz velocity ramp
+        self.create_timer(1.0,  self._reconnect_cb)   #   1 Hz serial watchdog
 
         self.get_logger().info(
             f'serial_bridge_node ready — port={port} baudrate={baudrate} '
@@ -176,9 +181,39 @@ class SerialBridgeNode(Node):
             time.sleep(0.1)
             self._ser.dtr = True
             self.get_logger().info(f'Opened serial port {port}')
-        except serial.serialutil.SerialException as e:
-            self.get_logger().error(f'Could not open serial port {port}: {e}')
+            self._serial_error_logged = False
+        except (serial.serialutil.SerialException, OSError) as e:
+            # Log the first failure only, so the 1 Hz watchdog doesn't spam
+            # while the Teensy is unplugged.
+            if not self._serial_error_logged:
+                self.get_logger().error(f'Could not open serial port {port}: {e}')
+                self._serial_error_logged = True
             self._ser = None
+
+    def _drop_serial(self) -> None:
+        """Close and forget the handle so the watchdog re-opens the port."""
+        if self._ser is not None:
+            try:
+                self._ser.close()
+            except Exception:
+                pass
+        self._ser = None
+
+    def _reconnect_cb(self) -> None:
+        """1 Hz watchdog: re-open the serial port if the link dropped (Teensy
+        USB glitch, reset, or replug) so the node recovers on its own — no
+        manual restart needed."""
+        if self._ser is not None and self._ser.is_open:
+            return
+        self._open_serial(self._port, self._baudrate)
+        if self._ser is not None:
+            # Fresh connection: re-init odometry/IMU timing so the first packet
+            # after reconnect doesn't produce a huge dt or encoder-count jump.
+            self._prev_time    = None
+            self._prev_lcnt    = None
+            self._prev_rcnt    = None
+            self._prev_yaw_imu = None
+            self.get_logger().info('Serial link re-established.')
 
     # ── Velocity command & smoother ───────────────────────────────────────────
 
@@ -243,9 +278,9 @@ class SerialBridgeNode(Node):
             return
         try:
             self._ser.write(packet.encode('utf-8'))
-        except serial.serialutil.SerialException as e:
-            self.get_logger().error(f'Serial write failed: {e}')
-            self._ser = None
+        except (serial.serialutil.SerialException, OSError) as e:
+            self.get_logger().warn(f'Serial write failed — dropping link to reconnect: {e}')
+            self._drop_serial()
 
     # ── Serial receive ────────────────────────────────────────────────────────
 
@@ -264,7 +299,13 @@ class SerialBridgeNode(Node):
                         self._aux_status_pub.publish(String(data=decoded))
                     else:
                         self._parse_telemetry(decoded)
+        except (serial.serialutil.SerialException, OSError) as e:
+            # Device vanished (unplug / reset) — drop the link so the watchdog
+            # reconnects instead of throwing every cycle forever.
+            self.get_logger().warn(f'Serial read failed — dropping link to reconnect: {e}')
+            self._drop_serial()
         except Exception as e:
+            # Decode/parse hiccup on a single line — keep the link, skip the line.
             self.get_logger().error(f'Serial read error: {e}')
 
     # ── Telemetry parser ──────────────────────────────────────────────────────
